@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+streamlit
+langchain
+langchain-huggingface
+langchain-ollama
+sentence-transformers
+faiss-cpu
+requests
+python-dotenv
+
+sqlalchemy
+passlib
+python-jose[cryptography]
+python-multipart
+google-generativeai
+pillow

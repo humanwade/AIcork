@@ -1,0 +1,249 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../wine_recommendation/domain/entities/wine_entity.dart';
+import '../../data/datasources/cellar_api_service.dart';
+import '../models/cellar_wine.dart';
+import '../models/tried_wine_entry.dart';
+import '../models/wine_source.dart';
+import '../models/wine_type.dart';
+import '../state/cellar_state.dart';
+
+final cellarApiProvider = Provider<CellarApiService>((ref) {
+  return CellarApiService.create();
+});
+
+final cellarControllerProvider =
+    AsyncNotifierProvider<CellarController, CellarState>(CellarController.new);
+
+class CellarController extends AsyncNotifier<CellarState> {
+  CellarApiService get _api => ref.read(cellarApiProvider);
+
+  static const _empty =
+      CellarState(wants: <CellarWine>[], tried: <TriedWineEntry>[]);
+
+  @override
+  Future<CellarState> build() async {
+    debugPrint('Fetching cellar for current user...');
+    final wantsRemote = await _api.fetch(isTried: false);
+    final triedRemote = await _api.fetch(isTried: true);
+
+    final wants = wantsRemote.map(_mapRemoteToWant).toList();
+    final tried = triedRemote.map(_mapRemoteToTried).toList();
+
+    debugPrint(
+        'CellarController.build: fetched wants=${wants.length}, tried=${tried.length}');
+    return CellarState(wants: wants, tried: tried);
+  }
+
+  bool isSavedWantSku(String sku) {
+    final s = state.valueOrNull;
+    if (s == null) return false;
+    return s.wants.any((w) => w.sku == sku);
+  }
+
+  Future<void> toggleWantFromRecommendation(WineEntity wine) async {
+    debugPrint('CellarController.toggleWantFromRecommendation: sku=${wine.sku}');
+    final current = state.valueOrNull ?? _empty;
+
+    final existsIndex = current.wants.indexWhere((w) => w.sku == wine.sku);
+    final wants = [...current.wants];
+
+    if (existsIndex >= 0) {
+      final existing = wants.removeAt(existsIndex);
+      final remoteId = int.tryParse(existing.id);
+      debugPrint(
+          'CellarController.toggleWantFromRecommendation: removing existing id=${existing.id}, remoteId=$remoteId');
+      if (remoteId != null) {
+        await _api.delete(remoteId);
+      }
+    } else {
+      debugPrint(
+          'CellarController.toggleWantFromRecommendation: creating new entry for "${wine.title}"');
+      final created = await _api.create(
+        wineName: wine.title,
+        wineType: WineType.other.label,
+        isTried: false,
+        rating: null,
+        tastingNotes: wine.tastingNotes,
+        imageUrl: wine.thumbnailUrl,
+        sku: wine.sku,
+        price: wine.price,
+        thumbnailUrl: wine.thumbnailUrl,
+        sommelierNote: wine.sommelierNote,
+        inventoryUrl: wine.inventoryUrl,
+      );
+      wants.insert(0, _mapRemoteToWant(created));
+    }
+
+    state = AsyncValue.data(current.copyWith(wants: wants));
+  }
+
+  Future<void> addCustomFromScan({
+    required String? recognizedName,
+    required String? recognizedWinery,
+    required String? recognizedVintage,
+    required String? editedName,
+    required String? editedWinery,
+    required String? editedVintage,
+    required bool isTried,
+    double? rating,
+    String? tastingNotes,
+    String? imageUrl,
+  }) async {
+    final current = state.valueOrNull ?? _empty;
+    debugPrint('CellarController.addCustomFromScan: isTried=$isTried');
+
+    final created = await _api.createCustomFromScan(
+      recognizedName: recognizedName,
+      recognizedWinery: recognizedWinery,
+      recognizedVintage: recognizedVintage,
+      editedName: editedName,
+      editedWinery: editedWinery,
+      editedVintage: editedVintage,
+      isTried: isTried,
+      rating: rating,
+      tastingNotes: tastingNotes,
+      imageUrl: imageUrl,
+    );
+
+    if (isTried) {
+      final tried = [_mapRemoteToTried(created), ...current.tried];
+      state = AsyncValue.data(current.copyWith(tried: tried));
+    } else {
+      final wants = [_mapRemoteToWant(created), ...current.wants];
+      state = AsyncValue.data(current.copyWith(wants: wants));
+    }
+  }
+
+  Future<void> addManualWant({
+    required String title,
+    required WineType type,
+  }) async {
+    final current = state.valueOrNull ?? _empty;
+    debugPrint(
+        'CellarController.addManualWant: title="$title", type=${type.label}');
+
+    final created = await _api.create(
+      wineName: title,
+      wineType: type.label,
+      isTried: false,
+    );
+    final wants = [_mapRemoteToWant(created), ...current.wants];
+    state = AsyncValue.data(current.copyWith(wants: wants));
+  }
+
+  Future<void> removeWant(String id) async {
+    final current = state.valueOrNull ?? _empty;
+    debugPrint('CellarController.removeWant: id=$id');
+    final remoteId = int.tryParse(id);
+    if (remoteId != null) {
+      await _api.delete(remoteId);
+    }
+    final wants = current.wants.where((w) => w.id != id).toList();
+    state = AsyncValue.data(current.copyWith(wants: wants));
+  }
+
+  Future<void> addTried(TriedWineEntry entry) async {
+    final current = state.valueOrNull ?? _empty;
+    debugPrint('CellarController.addTried: title="${entry.title}"');
+    final created = await _api.create(
+      wineName: entry.title,
+      wineType: entry.type.label,
+      isTried: true,
+      rating: entry.rating,
+      tastingNotes: entry.customNotes,
+      imageUrl: entry.imageUrl,
+      sku: entry.sku,
+      price: entry.price,
+      thumbnailUrl: entry.imageUrl,
+      inventoryUrl: entry.inventoryUrl,
+    );
+    final tried = [_mapRemoteToTried(created), ...current.tried];
+    state = AsyncValue.data(current.copyWith(tried: tried));
+  }
+
+  Future<void> removeTried(String id) async {
+    final current = state.valueOrNull ?? _empty;
+    debugPrint('CellarController.removeTried: id=$id');
+    final remoteId = int.tryParse(id);
+    if (remoteId != null) {
+      await _api.delete(remoteId);
+    }
+    final tried = current.tried.where((e) => e.id != id).toList();
+    state = AsyncValue.data(current.copyWith(tried: tried));
+  }
+
+  Future<void> markWantAsTried({
+    required CellarWine want,
+    required double rating,
+    required List<String> flavorTags,
+    required List<String> styleTags,
+    required String customNotes,
+    String? purchaseNotes,
+    DateTime? tastedAt,
+  }) async {
+    final current = state.valueOrNull ?? _empty;
+    final remoteId = int.tryParse(want.id);
+    debugPrint(
+        'CellarController.markWantAsTried: id=${want.id}, remoteId=$remoteId, rating=$rating');
+    if (remoteId == null) return;
+
+    final updated = await _api.update(
+      id: remoteId,
+      rating: rating,
+      tastingNotes: customNotes.isEmpty ? null : customNotes,
+      isTried: true,
+      imageUrl: want.imageUrl,
+      thumbnailUrl: want.imageUrl,
+      tastedAt: tastedAt,
+      flavors: flavorTags.isEmpty ? null : flavorTags,
+      aromas: null,
+      bodyStyle: styleTags.isEmpty ? null : styleTags,
+      purchaseNotes: purchaseNotes?.trim().isEmpty ?? true ? null : purchaseNotes,
+    );
+
+    final wants = current.wants.where((w) => w.id != want.id).toList();
+    final tried = [_mapRemoteToTried(updated), ...current.tried];
+
+    state = AsyncValue.data(current.copyWith(wants: wants, tried: tried));
+  }
+
+  CellarWine _mapRemoteToWant(RemoteWineEntry e) {
+    return CellarWine(
+      id: e.id.toString(),
+      title: e.wineName,
+      type: WineType.fromLabel(e.wineType),
+      imageUrl: e.imageUrl ?? e.thumbnailUrl,
+      price: e.price,
+      sku: e.sku,
+      tastingNotes: e.tastingNotes,
+      sommelierNote: e.sommelierNote,
+      inventoryUrl: e.inventoryUrl,
+      addedAt: e.addedAt,
+      source: WineSource.manual,
+    );
+  }
+
+  TriedWineEntry _mapRemoteToTried(RemoteWineEntry e) {
+    return TriedWineEntry(
+      id: e.id.toString(),
+      title: e.wineName,
+      type: WineType.fromLabel(e.wineType),
+      imageUrl: e.imageUrl ?? e.thumbnailUrl,
+      price: e.price,
+      sku: e.sku,
+      inventoryUrl: e.inventoryUrl,
+      rating: e.rating ?? 0,
+      flavorTags: e.flavors,
+      aromaTags: e.aromas,
+      styleTags: e.bodyStyle,
+      customNotes: e.tastingNotes ?? '',
+      revisitNotes: e.purchaseNotes,
+      addedAt: e.addedAt,
+      tastedAt: e.tastedAt ?? e.addedAt,
+      source: WineSource.manual,
+    );
+  }
+}
+
