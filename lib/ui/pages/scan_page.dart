@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../features/scan/data/datasources/scanner_api_service.dart';
 import '../../features/scan/domain/models/scan_wine_response.dart';
+import '../../features/scan/domain/models/scan_history_entry.dart';
 import '../../features/wine_recommendation/domain/entities/wine_entity.dart';
 
 class ScanPage extends StatefulWidget {
@@ -25,6 +26,14 @@ class _ScanPageState extends State<ScanPage> {
   final ImagePicker _picker = ImagePicker();
   bool _isRecognizing = false;
   final ScannerApiService _scannerApi = ScannerApiService.create();
+  bool _loadingHistory = false;
+  List<ScanHistoryEntry> _history = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
 
   Future<void> _takePhoto() async {
     final XFile? file = await _picker.pickImage(
@@ -64,6 +73,7 @@ class _ScanPageState extends State<ScanPage> {
         recognizedWineName: response.wineName,
         recognizedWinery: response.winery,
         recognizedVintage: response.vintage,
+        wineType: d.wineType,
       );
     }
     final parts = <String>[
@@ -85,7 +95,26 @@ class _ScanPageState extends State<ScanPage> {
       recognizedWineName: response.wineName,
       recognizedWinery: response.winery,
       recognizedVintage: response.vintage,
+      wineType: null,
     );
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _loadingHistory = true);
+    try {
+      final items = await _scannerApi.fetchScanHistory();
+      if (!mounted) return;
+      setState(() {
+        _history = items;
+        _loadingHistory = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _history = const [];
+        _loadingHistory = false;
+      });
+    }
   }
 
   Future<void> _scanImage(String path) async {
@@ -107,6 +136,17 @@ class _ScanPageState extends State<ScanPage> {
       }
       debugPrint('Scan result received: matched_db=${response.matchedDb}');
       final wine = _responseToWineEntity(response);
+      // Best-effort save to scan history; failures should not break flow.
+      final historyName = wine.title.isNotEmpty
+          ? wine.title
+          : (response.wineName ?? 'Unknown wine');
+      _scannerApi.saveScanHistory(
+        wineName: historyName,
+        sku: wine.sku,
+        imageUrl: wine.thumbnailUrl,
+      );
+      // Refresh history in background.
+      _loadHistory();
       context.push('/home/results/detail', extra: wine);
     } catch (e) {
       debugPrint('ScanPage: scan API error: $e');
@@ -221,6 +261,94 @@ class _ScanPageState extends State<ScanPage> {
                           ],
                         ),
                       ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  if (_loadingHistory) ...[
+                    Text(
+                      'Scan history',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Loading recent scans...',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ] else if (_history.isNotEmpty) ...[
+                    Text(
+                      'Scan history',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Column(
+                      children: _history
+                          .map(
+                            (h) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.history_rounded,
+                                color: Color(0xFF5C4A3F),
+                              ),
+                              title: Text(
+                                h.wineName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: h.sku != null
+                                  ? Text(
+                                      'SKU ${h.sku}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    )
+                                  : null,
+                              trailing: IconButton(
+                                tooltip: 'Remove from history',
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.grey.shade500,
+                                ),
+                                onPressed: () async {
+                                  await _scannerApi.deleteScanHistory(h.id);
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _history = _history
+                                        .where((e) => e.id != h.id)
+                                        .toList();
+                                  });
+                                },
+                              ),
+                              onTap: () {
+                                final title = h.wineName.isNotEmpty
+                                    ? h.wineName
+                                    : 'Unknown wine';
+                                final wine = WineEntity(
+                                  title: title,
+                                  price: 0,
+                                  sku: h.sku ??
+                                      'scan-history-${h.id.toString()}',
+                                  thumbnailUrl: h.imageUrl,
+                                  tastingNotes: null,
+                                  sommelierNote: null,
+                                  inventoryUrl: null,
+                                  matchedDb: h.sku != null,
+                                  canContribute: false,
+                                  recognizedWineName: null,
+                                  recognizedWinery: null,
+                                  recognizedVintage: null,
+                                  wineType: null,
+                                );
+                                context.push(
+                                  '/home/results/detail',
+                                  extra: wine,
+                                );
+                              },
+                            ),
+                          )
+                          .toList(),
                     ),
                   ],
                 ],

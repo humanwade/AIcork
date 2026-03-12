@@ -47,6 +47,7 @@ class ScanWineData {
     this.sommelierNote = '',
     this.winery,
     this.vintage,
+    this.wineType,
   });
 
   final String systitle;
@@ -58,6 +59,7 @@ class ScanWineData {
   final String sommelierNote;
   final String? winery;
   final String? vintage;
+  final String? wineType;
 
   factory ScanWineData.fromJson(Map<String, dynamic> json) {
     final sku = json['sku'];
@@ -71,6 +73,7 @@ class ScanWineData {
       sommelierNote: json['sommelier_note'] as String? ?? '',
       winery: json['winery'] as String?,
       vintage: json['vintage'] as String?,
+      wineType: json['wine_type'] as String?,
     );
   }
 }

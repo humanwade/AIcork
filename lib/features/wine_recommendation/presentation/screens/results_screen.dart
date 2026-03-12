@@ -22,6 +22,11 @@ class ResultsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasResults = wines.isNotEmpty;
+    final cellarState = ref.watch(cellarControllerProvider);
+    final savedSkus = {
+      if (cellarState.valueOrNull != null)
+        for (final w in cellarState.valueOrNull!.wants) w.sku,
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -47,12 +52,7 @@ class ResultsScreen extends ConsumerWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {
                     final wine = wines[index];
-                    final isSaved = ref
-                            .watch(cellarControllerProvider)
-                            .valueOrNull
-                            ?.wants
-                            .any((w) => w.sku == wine.sku) ??
-                        false;
+                    final isSaved = savedSkus.contains(wine.sku);
                     return WineCard(
                       wine: wine,
                       onTap: () {

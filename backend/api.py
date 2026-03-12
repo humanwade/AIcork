@@ -26,8 +26,11 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from recommendation.pipeline import recommend_wines
+from wine_type import normalize_wine_type
+
 from database import init_db, get_db
-from models import User, WineEntry
+from models import User, WineEntry, ScanHistory
 from schemas import (
     ChangePasswordRequest,
     CustomWineSaveRequest,
@@ -39,6 +42,8 @@ from schemas import (
     WineEntryCreate,
     WineEntryUpdate,
     WineEntryOut,
+    ScanHistoryCreate,
+    ScanHistoryOut,
 )
 from auth import (
     create_access_token,
@@ -63,8 +68,15 @@ PAIRINGS_DB_PATH = os.getenv("PAIRINGS_DB_PATH", str(PROJECT_ROOT / "data" / "pa
 
 
 class RecommendRequest(BaseModel):
+    """
+    Request model for /recommend.
+
+    NOTE: The UI supplies budget via a dedicated slider; we treat max_budget as that
+    value and NEVER attempt to parse price from the natural language query.
+    """
+
     query: str = Field(..., description="User's natural language description of occasion or preference")
-    max_budget: float = Field(50.0, description="Maximum price in CAD")
+    max_budget: float = Field(50.0, description="Maximum price in CAD (from UI slider, not parsed)")
     top_k: int = Field(3, ge=1, le=10, description="Number of recommendations to return")
     user_postal: Optional[str] = Field(
         None,
@@ -80,6 +92,8 @@ class WineResult(BaseModel):
     sku: Optional[str]
     inventory_url: Optional[str]
     sommelier_note: str
+    similarity_reason: Optional[str] = None
+    wine_type: Optional[str] = None
 
 
 app = FastAPI(title="LCBO Wine Recommendation API")
@@ -434,6 +448,7 @@ async def list_cellar_entries(
 
 
 @app.patch("/cellar/{entry_id}", response_model=WineEntryOut)
+@app.put("/cellar/{entry_id}", response_model=WineEntryOut)
 async def update_cellar_entry(
     entry_id: int,
     payload: WineEntryUpdate,
@@ -489,179 +504,216 @@ async def delete_cellar_entry(
 # Recommendation
 # -----------------------------
 
-def _recommend_core(req: RecommendRequest) -> List[Tuple]:
-    """Core semantic search + budget filtering, returns list of (doc, price_float)."""
-    _load_resources()
-
-    raw_results = vectorstore.similarity_search(req.query, k=50)
-
-    candidate_docs: List[Tuple] = []
-    budget_float = float(req.max_budget)
-
-    for doc in raw_results:
-        m = doc.metadata or {}
-        raw_price = m.get("ec_final_price")
-        try:
-            price_val = float(raw_price)
-        except (TypeError, ValueError):
-            continue
-
-        if price_val <= budget_float:
-            candidate_docs.append((doc, price_val))
-
-    candidate_docs = candidate_docs[:10]
-    return candidate_docs[: req.top_k]
-
-
-def _build_sommelier_notes_bulk(query: str, wines: List[Dict]) -> List[str]:
-    _load_resources()
-
-    if not wines:
-        return []
-
-    lines: List[str] = []
-    lines.append("You are a professional LCBO sommelier in Canada.")
-    lines.append(
-        "You MUST base your answer on each wine's LCBO tasting notes and explicitly reuse "
-        'key flavour words from them. For example, if the notes mention "dried fig" or "smoky", '
-        "you must include those exact terms in your reasoning."
-    )
-    lines.append("")
-    lines.append("[User Context]")
-    lines.append(query)
-    lines.append("")
-    lines.append(
-        "For each wine below, respond using the following numbered markdown structure. "
-        "Use exactly this format for each wine:"
-    )
-    lines.append("1) Summary: <one concise sentence explaining why this wine fits the user's vibe>")
-    lines.append(
-        "2) Pairing Logic: <2–3 sentences connecting specific traits from lcbo_tastingnotes "
-        "(tannins, acidity, body, sweetness, and flavour notes like fruit, spice, oak, etc.) "
-        "to the user's food or occasion. Explicitly reuse at least two concrete tasting-note keywords.>"
-    )
-    lines.append(
-        '3) Availability: <1 short sentence telling the user to click the "View Store Availability on LCBO.com" button to check live inventory.>'
-    )
-    lines.append(
-        "4) Service Tip: <1 sentence with a practical suggestion about serving temperature, decanting, or a simple side dish.>"
-    )
-    lines.append("")
-    lines.append(
-        'Now, for each wine below, respond in order with a block that starts with "[Wine #<index>]" on its own line, '
-        "followed by the 4 numbered lines. Do not include any extra commentary between wines."
-    )
-    lines.append("")
-
-    for idx, wine in enumerate(wines, start=1):
-        title = wine["title"]
-        price = wine["price"]
-        price_display = f"{price:.2f}" if isinstance(price, (int, float)) else "N/A"
-        notes = wine["notes"]
-
-        lines.append(f"[Wine #{idx}]")
-        lines.append(f"Title: {title}")
-        lines.append(f"Price: ${price_display}")
-        lines.append("LCBO Tasting Notes:")
-        lines.append(notes)
-        lines.append("")
-
-    prompt = "\n".join(lines)
-
-    raw_msg = llm.invoke(prompt)
-
-    if hasattr(raw_msg, "text") and raw_msg.text:
-        raw_text = raw_msg.text
-    elif isinstance(raw_msg.content, str):
-        raw_text = raw_msg.content
-    else:
-        raw_text = "\n".join(
-            block.get("text", "")
-            for block in raw_msg.content
-            if isinstance(block, dict) and block.get("type") == "text"
-        )
-
-    result_notes: List[str] = ["" for _ in wines]
-    current_index: Optional[int] = None
-    buffer: List[str] = []
-    wine_header_re = re.compile(r"\[?Wine\s*#?\s*(\d+)\]?", re.IGNORECASE)
-
-    for line in raw_text.splitlines():
-        stripped = line.strip()
-        match = wine_header_re.match(stripped)
-        if match:
-            if current_index is not None and 1 <= current_index <= len(wines):
-                result_notes[current_index - 1] = "\n".join(buffer).strip()
-            buffer = []
-            current_index = int(match.group(1))
-        else:
-            if current_index is not None:
-                buffer.append(line)
-
-    if current_index is not None and 1 <= current_index <= len(wines):
-        result_notes[current_index - 1] = "\n".join(buffer).strip()
-
-    raw_stripped = (raw_text.strip() if raw_text else "") or ""
-    for i, note in enumerate(result_notes):
-        if not note.strip():
-            if raw_stripped and i == 0:
-                result_notes[i] = raw_stripped
-            else:
-                result_notes[i] = "Sommelier note could not be generated for this wine."
-
-    return result_notes
-
-
 @app.post("/recommend", response_model=List[WineResult])
 async def recommend(req: RecommendRequest):
     """Return a list of recommended wines for the given query and budget."""
     _load_resources()
 
-    docs_with_price = _recommend_core(req)
+    wine_payloads, score_debug = recommend_wines(
+        query=req.query,
+        max_budget=req.max_budget,
+        top_k=req.top_k,
+        postal_code=req.user_postal,
+        vectorstore=vectorstore,
+        llm=llm,
+    )
 
-    # Prepare wine info for bulk LLM call
-    wine_infos: List[Dict] = []
-    for doc, price_val in docs_with_price:
-        m = doc.metadata or {}
-        wine_infos.append(
-            {
-                "title": m.get("systitle", "Unknown Wine"),
-                "price": price_val,
-                "notes": m.get("lcbo_tastingnotes", "No tasting notes available."),
-            }
+    # Structured logging for debugging / ranking inspection.
+    print(f"[recommend] parsed_query + ranking_debug_count={len(score_debug)}")
+
+    return [
+        WineResult(
+            systitle=w["systitle"],
+            ec_final_price=w["ec_final_price"],
+            lcbo_tastingnotes=w["lcbo_tastingnotes"],
+            ec_thumbnails=w["ec_thumbnails"],
+            sku=w["sku"],
+            inventory_url=w["inventory_url"],
+            sommelier_note=w["sommelier_note"],
+            wine_type=w.get("wine_type"),
         )
+        for w in wine_payloads
+    ]
 
-    sommelier_notes = _build_sommelier_notes_bulk(req.query, wine_infos)
+
+@app.get("/wine/{sku}/similar", response_model=List[WineResult])
+async def similar_wines(
+    sku: str,
+    user_postal: Optional[str] = None,
+):
+    """
+    Return 3–5 wines similar to the given SKU, using FAISS semantic search.
+
+    - Uses the master_wines row for the SKU as the query seed.
+    - Excludes the original wine from the results.
+    - Reuses existing metadata fields so the Flutter client can parse them
+      with the same model it uses for recommendations.
+    """
+    _load_resources()
+
+    base_row = _get_master_wine_by_sku(sku)
+    if not base_row:
+        return []
+
+    base_title = str(base_row.get("systitle") or "").strip()
+    base_notes = str(base_row.get("lcbo_tastingnotes") or "").strip()
+    base_price_raw = base_row.get("ec_final_price")
+    try:
+        base_price = float(base_price_raw) if base_price_raw is not None else None
+    except (TypeError, ValueError):
+        base_price = None
+
+    query = f"{base_title}. {base_notes}".strip() or base_title or base_notes
+    if not query:
+        return []
+
+    # Use FAISS to fetch semantic neighbours.
+    docs = vectorstore.similarity_search(query, k=16)
 
     results: List[WineResult] = []
-    for (doc, price_val), note_text in zip(docs_with_price, sommelier_notes):
-        m = doc.metadata or {}
-        title = m.get("systitle", "Unknown Wine")
-        notes = m.get("lcbo_tastingnotes", "No tasting notes available.")
-        thumb = m.get("ec_thumbnails")
-        ec_skus = m.get("ec_skus")
-        sku = m.get("permanentid") or (ec_skus[0] if isinstance(ec_skus, (list, tuple)) and ec_skus else None)
+    seen_skus = {str(sku)}
+    seen_titles = {base_title.lower()}
+    producer_counts: Dict[str, int] = {}
 
-        if req.user_postal and sku:
-            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={sku}&postalCode={req.user_postal}"
-        elif sku:
-            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={sku}"
+    def _normalize_title(t: str) -> str:
+        return (t or "").strip().lower()
+
+    def _producer_key(t: str) -> str:
+        # Very lightweight producer heuristic: first 1–2 words of title.
+        parts = _normalize_title(t).split()
+        if not parts:
+            return ""
+        return " ".join(parts[:2])
+
+    def _build_similarity_reason(
+        base_title: str,
+        base_notes: str,
+        base_price: Optional[float],
+        cand_title: str,
+        cand_notes: str,
+        cand_price: Optional[float],
+    ) -> str:
+        bt = base_title.lower()
+        bn = base_notes.lower()
+        ct = cand_title.lower()
+        cn = cand_notes.lower()
+
+        def has_any(text: str, keys: List[str]) -> bool:
+            return any(k in text for k in keys)
+
+        # Style-based cues
+        if has_any(bt + bn, ["rosé", "rose"]) and has_any(ct + cn, ["rosé", "rose"]):
+            return "Similar crisp rosé style"
+        if has_any(bt + bn, ["sparkling", "prosecco", "cava"]) and has_any(
+            ct + cn, ["sparkling", "prosecco", "cava"]
+        ):
+            return "Similar sparkling wine style"
+
+        # Fruit / profile cues
+        if has_any(bn, ["berry", "cherry", "raspberry"]) and has_any(
+            cn, ["berry", "cherry", "raspberry"]
+        ):
+            return "Berry-forward and food-friendly"
+        if has_any(bn, ["citrus", "lemon", "lime", "grapefruit"]) and has_any(
+            cn, ["citrus", "lemon", "lime", "grapefruit"]
+        ):
+            return "Similar citrusy freshness"
+        if has_any(bn, ["oak", "vanilla", "toast"]) and has_any(
+            cn, ["oak", "vanilla", "toast"]
+        ):
+            return "Similar oak-driven profile"
+
+        # Acidity / freshness
+        if has_any(bn, ["crisp", "zesty", "fresh"]) and has_any(
+            cn, ["crisp", "zesty", "fresh"]
+        ):
+            return "Similar acidity and freshness"
+
+        # Price-based reason
+        if base_price is not None and cand_price is not None:
+            if base_price <= 20 and cand_price <= 20:
+                return "Good alternative under $20"
+            if abs(base_price - cand_price) <= 3:
+                return "Similar style around the same price"
+
+        # Fallback
+        return "Similar flavour profile"
+
+    for doc in docs:
+        m = doc.metadata or {}
+        ec_skus = m.get("ec_skus")
+        cand_sku = m.get("permanentid") or (
+            ec_skus[0] if isinstance(ec_skus, (list, tuple)) and ec_skus else None
+        )
+        if not cand_sku:
+            continue
+        cand_sku = str(cand_sku)
+        if cand_sku in seen_skus:
+            continue
+
+        title_cand = m.get("systitle", "Unknown Wine")
+        norm_title = _normalize_title(title_cand)
+        if norm_title in seen_titles:
+            continue
+
+        raw_price = m.get("ec_final_price")
+        try:
+            price_val: Optional[float] = float(raw_price)
+        except (TypeError, ValueError):
+            price_val = None
+
+        thumb = m.get("ec_thumbnails")
+        notes_cand = m.get("lcbo_tastingnotes", "No tasting notes available.")
+        normalized_type = normalize_wine_type(
+            raw_style=m.get("style") or m.get("wine_style"),
+            title=title_cand,
+            notes=notes_cand,
+        )
+
+        # Diversity: avoid too many from the same rough producer.
+        producer = _producer_key(title_cand)
+        count = producer_counts.get(producer, 0)
+        if producer and count >= 2:
+            continue
+
+        if user_postal and cand_sku:
+            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={cand_sku}&postalCode={user_postal}"
+        elif cand_sku:
+            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={cand_sku}"
         else:
             inventory_url = None
 
-        results.append(
-            WineResult(
-                systitle=title,
-                ec_final_price=price_val,
-                lcbo_tastingnotes=notes,
-                ec_thumbnails=thumb,
-                sku=sku,
-                inventory_url=inventory_url,
-                sommelier_note=note_text,
-            )
+        reason = _build_similarity_reason(
+            base_title,
+            base_notes,
+            base_price,
+            title_cand,
+            notes_cand,
+            price_val,
         )
 
-    return results
+        results.append(
+            WineResult(
+                systitle=title_cand,
+                ec_final_price=price_val,
+                lcbo_tastingnotes=notes_cand,
+                ec_thumbnails=thumb,
+                sku=cand_sku,
+                inventory_url=inventory_url,
+                sommelier_note="",
+                similarity_reason=reason,
+                wine_type=normalized_type,
+            )
+        )
+        seen_skus.add(cand_sku)
+        seen_titles.add(norm_title)
+        if producer:
+            producer_counts[producer] = count + 1
+
+        if len(results) >= 5:
+            break
+
+    return results[:5]
 
 
 # -----------------------------
@@ -1091,6 +1143,11 @@ async def scan_wine_label(file: UploadFile = File(...)):
             price_val = 0.0
 
         inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={sku}" if sku else None
+        wine_type = normalize_wine_type(
+            raw_style=master_row.get("style") or master_row.get("wine_style"),
+            title=title,
+            notes=notes,
+        )
         wine_data = {
             "systitle": title,
             "ec_final_price": price_val,
@@ -1101,6 +1158,7 @@ async def scan_wine_label(file: UploadFile = File(...)):
             "sommelier_note": "",
             "winery": winery or None,
             "vintage": vintage or None,
+            "wine_type": wine_type,
         }
         return {
             "recognized": True,
@@ -1124,6 +1182,58 @@ async def scan_wine_label(file: UploadFile = File(...)):
         "wine_data": None,
         "can_contribute": True,
     }
+
+
+@app.post("/scan/history", response_model=ScanHistoryOut)
+async def add_scan_history(
+    payload: ScanHistoryCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ScanHistoryOut:
+    row = ScanHistory(
+        user_id=current_user.id,
+        wine_name=payload.wine_name,
+        sku=payload.sku,
+        image_url=payload.image_url,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@app.get("/scan/history", response_model=List[ScanHistoryOut])
+async def get_scan_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[ScanHistoryOut]:
+    rows = (
+        db.query(ScanHistory)
+        .filter(ScanHistory.user_id == current_user.id)
+        .order_by(ScanHistory.scanned_at.desc())
+        .limit(10)
+        .all()
+    )
+    return rows
+
+
+@app.delete("/scan/history/{history_id}")
+async def delete_scan_history(
+    history_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = db.query(ScanHistory).filter(ScanHistory.id == history_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scan history entry not found")
+    if row.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not allowed to delete this history entry",
+        )
+    db.delete(row)
+    db.commit()
+    return {"deleted": True, "id": history_id}
 
 
 # -----------------------------

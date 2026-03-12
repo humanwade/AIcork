@@ -178,6 +178,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           controller: _queryController,
                           maxLines: 3,
                           minLines: 2,
+                          keyboardType: TextInputType.multiline,
                           textInputAction: TextInputAction.newline,
                           decoration: const InputDecoration(
                             labelText: 'What are you eating?',

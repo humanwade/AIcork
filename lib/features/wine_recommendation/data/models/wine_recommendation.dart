@@ -8,6 +8,8 @@ class WineRecommendationModel {
   final String? tastingNotes;
   final String? sommelierNote;
   final String? inventoryUrl;
+  final String? similarityReason;
+  final String? wineType;
 
   const WineRecommendationModel({
     required this.title,
@@ -17,6 +19,8 @@ class WineRecommendationModel {
     this.tastingNotes,
     this.sommelierNote,
     this.inventoryUrl,
+    this.similarityReason,
+    this.wineType,
   });
 
   factory WineRecommendationModel.fromJson(Map<String, dynamic> json) {
@@ -45,6 +49,8 @@ class WineRecommendationModel {
       tastingNotes: (json['lcbo_tastingnotes'] as String?)?.trim(),
       sommelierNote: (json['sommelier_note'] as String?)?.trim(),
       inventoryUrl: (json['inventory_url'] as String?)?.trim(),
+      similarityReason: (json['similarity_reason'] as String?)?.trim(),
+      wineType: (json['wine_type'] as String?)?.trim(),
     );
   }
 
@@ -59,6 +65,7 @@ class WineRecommendationModel {
       inventoryUrl: inventoryUrl,
       matchedDb: true,
       canContribute: false,
+      wineType: wineType,
     );
   }
 }

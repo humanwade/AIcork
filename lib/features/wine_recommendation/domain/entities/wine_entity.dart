@@ -11,6 +11,7 @@ class WineEntity {
   final String? recognizedWineName;
   final String? recognizedWinery;
   final String? recognizedVintage;
+  final String? wineType;
 
   const WineEntity({
     required this.title,
@@ -25,6 +26,7 @@ class WineEntity {
     this.recognizedWineName,
     this.recognizedWinery,
     this.recognizedVintage,
+    this.wineType,
   });
 }
 

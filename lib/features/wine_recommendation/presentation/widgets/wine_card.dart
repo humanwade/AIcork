@@ -19,6 +19,7 @@ class WineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasImage = wine.thumbnailUrl != null && wine.thumbnailUrl!.isNotEmpty;
+    final typeLabel = (wine.wineType ?? '').trim();
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -84,7 +85,11 @@ class WineCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '\$${wine.price.toStringAsFixed(2)} • SKU ${wine.sku}',
+                      [
+                        if (typeLabel.isNotEmpty) typeLabel,
+                        '\$${wine.price.toStringAsFixed(2)}',
+                        'SKU ${wine.sku}',
+                      ].join(' • '),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade700,
                       ),

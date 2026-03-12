@@ -124,3 +124,14 @@ class UserContributedWine(Base):
 
     user: Mapped["User"] = relationship(lazy="selectin")
 
+
+class ScanHistory(Base):
+    __tablename__ = "scan_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    wine_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    sku: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    scanned_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+

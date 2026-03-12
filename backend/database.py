@@ -36,6 +36,14 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _migrate_wine_entries_tasting_columns()
+    # Extend master_wines schema for structured recommendation fields (non-destructive).
+    try:
+        from data.migrations import migrate_master_wines_schema
+
+        migrate_master_wines_schema(DB_PATH)
+    except Exception as exc:
+        # Migration failures should not bring the app down; log and continue.
+        print(f"[migrations] master_wines schema migration failed: {exc}")
 
 
 def _migrate_wine_entries_tasting_columns() -> None:

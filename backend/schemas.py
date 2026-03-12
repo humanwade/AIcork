@@ -130,3 +130,21 @@ class CustomWineSaveRequest(BaseModel):
     rating: Optional[float] = Field(default=None, ge=0, le=5)
     tasting_notes: Optional[str] = None
 
+
+class ScanHistoryCreate(BaseModel):
+    wine_name: str = Field(min_length=1, max_length=240)
+    sku: Optional[str] = Field(default=None, max_length=80)
+    image_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class ScanHistoryOut(BaseModel):
+    id: int
+    user_id: int
+    wine_name: str
+    sku: Optional[str]
+    image_url: Optional[str]
+    scanned_at: datetime
+
+    class Config:
+        from_attributes = True
+

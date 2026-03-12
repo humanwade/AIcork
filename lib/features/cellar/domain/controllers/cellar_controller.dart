@@ -62,7 +62,7 @@ class CellarController extends AsyncNotifier<CellarState> {
           'CellarController.toggleWantFromRecommendation: creating new entry for "${wine.title}"');
       final created = await _api.create(
         wineName: wine.title,
-        wineType: WineType.other.label,
+        wineType: WineType.fromLabel(wine.wineType).label,
         isTried: false,
         rating: null,
         tastingNotes: wine.tastingNotes,
@@ -171,6 +171,50 @@ class CellarController extends AsyncNotifier<CellarState> {
       await _api.delete(remoteId);
     }
     final tried = current.tried.where((e) => e.id != id).toList();
+    state = AsyncValue.data(current.copyWith(tried: tried));
+  }
+
+  Future<void> updateTried({
+    required TriedWineEntry original,
+    required double rating,
+    required Set<String> flavorTags,
+    required Set<String> styleTags,
+    required String customNotes,
+    required WineType type,
+    String? purchaseNotes,
+    DateTime? tastedAt,
+  }) async {
+    final current = state.valueOrNull ?? _empty;
+    final remoteId = int.tryParse(original.id);
+    debugPrint(
+        'CellarController.updateTried: id=${original.id}, remoteId=$remoteId, rating=$rating');
+    if (remoteId == null) return;
+
+    final flavorsList =
+        flavorTags.isEmpty ? null : (flavorTags.toList()..sort());
+    final styleList =
+        styleTags.isEmpty ? null : (styleTags.toList()..sort());
+
+    final updated = await _api.update(
+      id: remoteId,
+      rating: rating,
+      tastingNotes: customNotes.trim().isEmpty ? null : customNotes.trim(),
+      isTried: true,
+       wineType: type.label,
+      imageUrl: original.imageUrl,
+      thumbnailUrl: original.imageUrl,
+      tastedAt: tastedAt,
+      flavors: flavorsList,
+      aromas: null,
+      bodyStyle: styleList,
+      purchaseNotes:
+          purchaseNotes?.trim().isEmpty ?? true ? null : purchaseNotes!.trim(),
+    );
+
+    final updatedEntry = _mapRemoteToTried(updated);
+    final tried = current.tried
+        .map((e) => e.id == original.id ? updatedEntry : e)
+        .toList();
     state = AsyncValue.data(current.copyWith(tried: tried));
   }
 

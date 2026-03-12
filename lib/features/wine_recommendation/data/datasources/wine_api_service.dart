@@ -29,5 +29,24 @@ class WineApiService {
     }
     return results;
   }
+
+  Future<List<WineRecommendationModel>> fetchSimilar(String sku) async {
+    final Response<dynamic> response = await _dio.get(
+      '/wine/$sku/similar',
+    );
+
+    final data = response.data;
+    if (data is! List) {
+      return [];
+    }
+
+    final results = <WineRecommendationModel>[];
+    for (final item in data) {
+      if (item is Map<String, dynamic>) {
+        results.add(WineRecommendationModel.fromJson(item));
+      }
+    }
+    return results;
+  }
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/dio_client.dart';
 import '../../domain/models/scan_wine_response.dart';
+import '../../domain/models/scan_history_entry.dart';
 
 class ScannerApiService {
   ScannerApiService(this._dio);
@@ -41,5 +42,47 @@ class ScannerApiService {
     }
     debugPrint('Scan result received');
     return ScanWineResponse.fromJson(data);
+  }
+
+  Future<void> saveScanHistory({
+    required String wineName,
+    String? sku,
+    String? imageUrl,
+  }) async {
+    try {
+      await _dio.post<void>(
+        '/scan/history',
+        data: {
+          'wine_name': wineName,
+          'sku': sku,
+          'image_url': imageUrl,
+        },
+      );
+    } on DioException catch (e) {
+      debugPrint('ScannerApiService.saveScanHistory error: $e');
+    }
+  }
+
+  Future<List<ScanHistoryEntry>> fetchScanHistory() async {
+    try {
+      final response = await _dio.get<List<dynamic>>('/scan/history');
+      final data = response.data;
+      if (data == null) return const [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(ScanHistoryEntry.fromJson)
+          .toList();
+    } on DioException catch (e) {
+      debugPrint('ScannerApiService.fetchScanHistory error: $e');
+      return const [];
+    }
+  }
+
+  Future<void> deleteScanHistory(int id) async {
+    try {
+      await _dio.delete<void>('/scan/history/$id');
+    } on DioException catch (e) {
+      debugPrint('ScannerApiService.deleteScanHistory error: $e');
+    }
   }
 }

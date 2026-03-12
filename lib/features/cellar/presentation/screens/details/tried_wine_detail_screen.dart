@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../domain/controllers/cellar_controller.dart';
 import '../../../domain/models/tried_wine_entry.dart';
@@ -15,13 +16,31 @@ class TriedWineDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final tasted = entry.tastedAt;
+    final cellarState = ref.watch(cellarControllerProvider);
+    TriedWineEntry effective = entry;
+    final s = cellarState.valueOrNull;
+    if (s != null) {
+      for (final e in s.tried) {
+        if (e.id == entry.id) {
+          effective = e;
+          break;
+        }
+      }
+    }
+    final tasted = effective.tastedAt;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 24,
         title: const Text('Tasting'),
         actions: [
+          IconButton(
+            tooltip: 'Edit',
+            onPressed: () {
+              context.push('/cellar/edit-tried', extra: entry);
+            },
+            icon: const Icon(Icons.edit_rounded),
+          ),
           IconButton(
             tooltip: 'Remove',
             onPressed: () async {
@@ -37,10 +56,10 @@ class TriedWineDetailScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
           children: [
-            Text(entry.title, style: theme.textTheme.headlineSmall),
+            Text(effective.title, style: theme.textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
-              entry.type.label,
+              effective.type.label,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.grey.shade700,
               ),
@@ -50,8 +69,8 @@ class TriedWineDetailScreen extends ConsumerWidget {
               children: [
                 ...List.generate(5, (i) {
                   final idx = i + 1;
-                  final filled = entry.rating >= idx;
-                  final half = !filled && entry.rating >= (idx - 0.5);
+                  final filled = effective.rating >= idx;
+                  final half = !filled && effective.rating >= (idx - 0.5);
                   return Icon(
                     filled
                         ? Icons.star_rounded
@@ -64,7 +83,7 @@ class TriedWineDetailScreen extends ConsumerWidget {
                 }),
                 const SizedBox(width: 10),
                 Text(
-                  entry.rating.toStringAsFixed(1),
+                  effective.rating.toStringAsFixed(1),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF5C4A3F),
@@ -124,7 +143,7 @@ class TriedWineDetailScreen extends ConsumerWidget {
               Text('Notes', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(
-                entry.customNotes,
+                effective.customNotes,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
               ),
               const SizedBox(height: 18),
@@ -133,7 +152,7 @@ class TriedWineDetailScreen extends ConsumerWidget {
               Text('Purchase / Revisit notes', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(
-                entry.revisitNotes!,
+                effective.revisitNotes!,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
               ),
               const SizedBox(height: 18),

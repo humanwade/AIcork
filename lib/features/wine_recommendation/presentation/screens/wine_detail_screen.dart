@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/entities/wine_entity.dart';
 import '../widgets/wine_detail_sections.dart';
 import '../../../cellar/domain/controllers/cellar_controller.dart';
+import '../../data/models/wine_recommendation.dart';
+import '../../presentation/providers/recommendation_providers.dart';
 
 class WineDetailScreen extends ConsumerStatefulWidget {
   const WineDetailScreen({
@@ -23,6 +25,13 @@ class WineDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<WineDetailScreen> createState() => _WineDetailScreenState();
 }
 
+class _SimilarWine {
+  final WineEntity wine;
+  final String? reason;
+
+  const _SimilarWine({required this.wine, this.reason});
+}
+
 class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
   late final TextEditingController _wineryController;
   late final TextEditingController _nameController;
@@ -32,7 +41,21 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
   bool _saveAsTried = false;
   double _rating = 4.0;
 
+  bool _loadingSimilar = false;
+  List<_SimilarWine> _similar = const [];
+
   WineEntity get wine => widget.wine;
+
+  String _inferStyleFromTitle(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('rosé') || lower.contains('rose')) return 'Rosé';
+    if (lower.contains('sparkling') ||
+        lower.contains('prosecco') ||
+        lower.contains('cava')) return 'Sparkling';
+    if (lower.contains('white')) return 'White';
+    if (lower.contains('red')) return 'Red';
+    return '';
+  }
 
   @override
   void initState() {
@@ -42,6 +65,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
         TextEditingController(text: wine.recognizedWineName ?? '');
     _vintageController =
         TextEditingController(text: wine.recognizedVintage ?? '');
+    _loadSimilar();
   }
 
   @override
@@ -50,6 +74,40 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
     _nameController.dispose();
     _vintageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSimilar() async {
+    // Only attempt similar lookup when we have a real SKU from the DB.
+    if (wine.sku.trim().isEmpty || wine.matchedDb == false) {
+      return;
+    }
+    if (_loadingSimilar) return;
+    setState(() => _loadingSimilar = true);
+
+    try {
+      final api = ref.read(wineApiServiceProvider);
+      final models = await api.fetchSimilar(wine.sku);
+      final items = models
+          .where((m) => m.sku != wine.sku)
+          .map(
+            (m) => _SimilarWine(
+              wine: m.toEntity(),
+              reason: m.similarityReason,
+            ),
+          )
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _similar = items;
+        _loadingSimilar = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _similar = const [];
+        _loadingSimilar = false;
+      });
+    }
   }
 
   Future<void> _openInventory(BuildContext context) async {
@@ -149,6 +207,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
     final theme = Theme.of(context);
     final hasImage = wine.thumbnailUrl != null && wine.thumbnailUrl!.isNotEmpty;
     final isDbBacked = wine.matchedDb == true;
+    final typeLabel = (wine.wineType ?? '').trim();
     final isSaved = ref
             .watch(cellarControllerProvider)
             .valueOrNull
@@ -385,7 +444,9 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
               Row(
                 children: [
                   Text(
-                    '\$${wine.price.toStringAsFixed(2)}',
+                    typeLabel.isNotEmpty
+                        ? '$typeLabel • \$${wine.price.toStringAsFixed(2)}'
+                        : '\$${wine.price.toStringAsFixed(2)}',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: const Color(0xFF5C4A3F),
                     ),
@@ -433,6 +494,129 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
               tastingNotes: wine.tastingNotes,
               sommelierNote: wine.sommelierNote,
             ),
+            const SizedBox(height: 20),
+            if (_loadingSimilar) ...[
+              Text(
+                'Similar wines',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Finding similar bottles...',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else if (_similar.isNotEmpty) ...[
+              Text(
+                'Similar wines',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              ..._similar.take(5).map(
+                (item) {
+                  final w = item.wine;
+                  final hasThumb =
+                      (w.thumbnailUrl ?? '').trim().isNotEmpty;
+                  final explicitType = (w.wineType ?? '').trim();
+                  final styleHint = explicitType.isNotEmpty
+                      ? explicitType
+                      : _inferStyleFromTitle(w.title);
+                  final topLine = styleHint.isNotEmpty
+                      ? '$styleHint • \$${w.price.toStringAsFixed(2)}'
+                      : '\$${w.price.toStringAsFixed(2)}';
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => WineDetailScreen(wine: w),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 54,
+                                height: 72,
+                                color: const Color(0xFFF0E9E2),
+                                child: hasThumb
+                                    ? CachedNetworkImage(
+                                        imageUrl: w.thumbnailUrl!,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, _) =>
+                                            const Center(
+                                          child: Icon(
+                                            Icons.wine_bar_outlined,
+                                            color: Color(0xFFB9A18A),
+                                          ),
+                                        ),
+                                        errorWidget: (context, _, __) =>
+                                            const Center(
+                                          child: Icon(
+                                            Icons.wine_bar_outlined,
+                                            color: Color(0xFFB9A18A),
+                                          ),
+                                        ),
+                                      )
+                                    : const Center(
+                                        child: Icon(
+                                          Icons.wine_bar_outlined,
+                                          color: Color(0xFFB9A18A),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    w.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    topLine,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  if ((item.reason ?? '').isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.reason!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
             const SizedBox(height: 24),
             if (isDbBacked) ...[
               SizedBox(

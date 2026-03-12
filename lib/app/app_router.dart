@@ -15,6 +15,7 @@ import '../features/cellar/presentation/screens/details/cellar_wine_detail_scree
 import '../features/cellar/presentation/screens/details/tried_wine_detail_screen.dart';
 import '../features/cellar/presentation/screens/forms/add_cellar_wine_screen.dart';
 import '../features/cellar/presentation/screens/forms/add_tried_wine_screen.dart';
+import '../features/cellar/presentation/screens/forms/edit_tried_wine_screen.dart';
 import '../features/cellar/domain/models/cellar_wine.dart';
 import '../features/cellar/domain/models/tried_wine_entry.dart';
 import '../ui/pages/cellar_page.dart';
@@ -210,6 +211,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       final entry = state.extra as TriedWineEntry;
                       return MaterialPage(
                         child: TriedWineDetailScreen(entry: entry),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'edit-tried',
+                    pageBuilder: (context, state) {
+                      final entry = state.extra as TriedWineEntry;
+                      return MaterialPage(
+                        child: EditTriedWineScreen(entry: entry),
                       );
                     },
                   ),
