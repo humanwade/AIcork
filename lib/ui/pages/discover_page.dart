@@ -1,13 +1,23 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../features/discover/presentation/providers/discover_providers.dart';
 import '../../features/discover/data/models/discover_collection.dart';
+import '../../features/discover/domain/models/learn_wine_article.dart';
+import '../../features/discover/presentation/providers/discover_providers.dart';
 import '../../features/discover/presentation/screens/discover_collection_screen.dart';
 import '../../features/wine_recommendation/data/models/wine_recommendation.dart';
-import '../../features/wine_recommendation/domain/entities/wine_entity.dart';
 import '../../features/wine_recommendation/presentation/widgets/wine_card.dart';
+
+/// Static style chips for Explore Styles section.
+/// Maps display labels to backend collection slugs.
+const _exploreStyles = [
+  (label: 'Bold Reds', slug: 'steak-night-reds'),
+  (label: 'Crisp Whites', slug: 'crisp-whites'),
+  (label: 'Rosé', slug: 'summer-rose'),
+  (label: 'Sparkling', slug: 'sparkling-picks'),
+  (label: 'Light & Fresh', slug: 'pasta-pairings'),
+];
 
 class DiscoverPage extends ConsumerWidget {
   const DiscoverPage({super.key});
@@ -18,9 +28,7 @@ class DiscoverPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final dailyAsync = ref.watch(discoverDailyProvider);
-    final collectionsAsync = ref.watch(discoverCollectionsProvider);
-    final recommendedAsync = ref.watch(discoverRecommendedProvider);
+    final forYouAsync = ref.watch(discoverForYouProvider);
     final budgetAsync = ref.watch(discoverBudgetProvider);
 
     return Scaffold(
@@ -43,32 +51,18 @@ class DiscoverPage extends ConsumerWidget {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(discoverDailyProvider);
-            ref.invalidate(discoverCollectionsProvider);
-            ref.invalidate(discoverRecommendedProvider);
+            ref.invalidate(discoverForYouProvider);
             ref.invalidate(discoverBudgetProvider);
           },
           child: ListView(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             children: [
-              // 1) Today's Picks
-              _buildDailySection(context, theme, dailyAsync),
+              _buildForYouSection(context, theme, forYouAsync),
               const SizedBox(height: 24),
-
-              // 2) Recommended for You
-              _buildRecommendedSection(context, theme, recommendedAsync),
+              _buildExploreStylesSection(context, theme),
               const SizedBox(height: 24),
-
-              // 3) Collections
-              _buildCollectionsSection(context, theme, collectionsAsync),
-              const SizedBox(height: 24),
-
-              // 4) Best Under $20
               _buildBudgetSection(context, theme, budgetAsync),
               const SizedBox(height: 24),
-
-              // 5) Optional Learn Wine (lightweight, static)
               _buildLearnWineSection(context, theme),
             ],
           ),
@@ -100,58 +94,7 @@ class DiscoverPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDailySection(
-    BuildContext context,
-    ThemeData theme,
-    AsyncValue<List<WineRecommendationModel>> asyncModels,
-  ) {
-    return asyncModels.when(
-      data: (models) {
-        if (models.isEmpty) return const SizedBox.shrink();
-        final items = models.take(3).toList();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader(
-              context,
-              'Today\'s Picks',
-              subtitle: 'Three bottles to consider tonight',
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 280,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final m = items[index];
-                  return SizedBox(
-                    width: 190,
-                    child: _DiscoverWineCard(model: m),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            context,
-            'Today\'s Picks',
-          ),
-          const SizedBox(height: 12),
-          const Center(child: CircularProgressIndicator()),
-        ],
-      ),
-      error: (e, _) => const SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildRecommendedSection(
+  Widget _buildForYouSection(
     BuildContext context,
     ThemeData theme,
     AsyncValue<List<WineRecommendationModel>> asyncModels,
@@ -159,29 +102,34 @@ class DiscoverPage extends ConsumerWidget {
     return asyncModels.when(
       data: (models) {
         if (models.isEmpty) {
-          return const SizedBox.shrink();
+          return _ForYouEmptyState();
         }
-        final items = models.take(3).toList();
+        final items = models.take(4).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(
               context,
-              'Recommended for You',
+              'For You',
               subtitle: 'Based on your tasting history',
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 260,
+              height: 160,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  final m = items[index];
+                  final wine = items[index].toEntity();
                   return SizedBox(
-                    width: 190,
-                    child: _DiscoverWineCard(model: m),
+                    width: 280,
+                    child: WineCard(
+                      wine: wine,
+                      onTap: () {
+                        context.push('/home/results/detail', extra: wine);
+                      },
+                    ),
                   );
                 },
               ),
@@ -189,54 +137,49 @@ class DiscoverPage extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const SizedBox.shrink(),
-      error: (e, _) => const SizedBox.shrink(),
+      loading: () => _ForYouEmptyState(),
+      error: (_, __) => _ForYouEmptyState(),
     );
   }
 
-  Widget _buildCollectionsSection(
-    BuildContext context,
-    ThemeData theme,
-    AsyncValue<List<DiscoverCollection>> asyncCollections,
-  ) {
-    return asyncCollections.when(
-      data: (collections) {
-        if (collections.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader(
-              context,
-              'Collections',
-              subtitle: 'Browse themed groups of wines',
-            ),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: collections.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1.7,
-              ),
-              itemBuilder: (context, index) {
-                final c = collections[index];
-                return _CollectionCard(collection: c);
-              },
-            ),
-          ],
-        );
-      },
-      loading: () => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(context, 'Collections'),
-          const SizedBox(height: 8),
-        ],
-      ),
-      error: (e, _) => const SizedBox.shrink(),
+  Widget _buildExploreStylesSection(BuildContext context, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          context,
+          'Explore Styles',
+          subtitle: 'Browse wines by style',
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _exploreStyles.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final style = _exploreStyles[index];
+              final collection = DiscoverCollection(
+                slug: style.slug,
+                title: style.label,
+                subtitle: '',
+              );
+              return ActionChip(
+                label: Text(style.label),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          DiscoverCollectionScreen(collection: collection),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -248,14 +191,14 @@ class DiscoverPage extends ConsumerWidget {
     return asyncModels.when(
       data: (models) {
         if (models.isEmpty) return const SizedBox.shrink();
-        final items = models.take(3).toList();
+        final items = models.take(5).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(
               context,
-              'Best Under \$20',
-              subtitle: 'Good bottles that won\'t break the budget',
+              'Budget Picks',
+              subtitle: 'Good bottles under \$20',
             ),
             const SizedBox(height: 12),
             ...items.map(
@@ -266,10 +209,7 @@ class DiscoverPage extends ConsumerWidget {
                   child: WineCard(
                     wine: wine,
                     onTap: () {
-                      Navigator.of(context).pushNamed(
-                        '/home/results/detail',
-                        arguments: wine,
-                      );
+                      context.push('/home/results/detail', extra: wine);
                     },
                   ),
                 );
@@ -279,26 +219,11 @@ class DiscoverPage extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (e, _) => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
   Widget _buildLearnWineSection(BuildContext context, ThemeData theme) {
-    final cards = [
-      const _LearnCard(
-        title: 'What is tannin?',
-        subtitle: 'Understand structure and grip in red wines.',
-      ),
-      const _LearnCard(
-        title: 'Red vs white basics',
-        subtitle: 'Simple rules for pairing at the table.',
-      ),
-      const _LearnCard(
-        title: 'Shopping at LCBO',
-        subtitle: 'Tips for choosing a bottle with confidence.',
-      ),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -308,10 +233,15 @@ class DiscoverPage extends ConsumerWidget {
           subtitle: 'Short tips for curious drinkers',
         ),
         const SizedBox(height: 12),
-        ...cards.map(
-          (c) => Padding(
+        ...LearnWineArticle.all.map(
+          (article) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: c,
+            child: _LearnCard(
+              article: article,
+              onTap: () {
+                context.push('/discover/learn', extra: article);
+              },
+            ),
           ),
         ),
       ],
@@ -319,211 +249,39 @@ class DiscoverPage extends ConsumerWidget {
   }
 }
 
-class _DiscoverWineCard extends StatelessWidget {
-  const _DiscoverWineCard({required this.model});
-
-  final WineRecommendationModel model;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final wine = model.toEntity();
-    final typeLabel = (wine.wineType ?? '').trim();
-    final reason = model.similarityReason ?? '';
-    final hasImage =
-        wine.thumbnailUrl != null && wine.thumbnailUrl!.trim().isNotEmpty;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.of(context).pushNamed(
-          '/home/results/detail',
-          arguments: wine,
-        );
-      },
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        elevation: 1.5,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  height: 100,
-                  width: double.infinity,
-                  color: const Color(0xFFF0E9E2),
-                  child: hasImage
-                      ? CachedNetworkImage(
-                          imageUrl: wine.thumbnailUrl!,
-                          fit: BoxFit.contain,
-                          placeholder: (context, _) => const Center(
-                            child: Icon(
-                              Icons.wine_bar_outlined,
-                              color: Color(0xFFB9A18A),
-                            ),
-                          ),
-                          errorWidget: (context, _, __) => const Center(
-                            child: Icon(
-                              Icons.wine_bar_outlined,
-                              color: Color(0xFFB9A18A),
-                            ),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.wine_bar_outlined,
-                            color: Color(0xFFB9A18A),
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                wine.title,
-                style: theme.textTheme.titleMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                [
-                  if (typeLabel.isNotEmpty) typeLabel,
-                  '\$${wine.price.toStringAsFixed(2)}',
-                ].join(' • '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              if (reason.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  reason,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.brown.shade400,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CollectionCard extends StatelessWidget {
-  const _CollectionCard({required this.collection});
-
-  final DiscoverCollection collection;
-
-  IconData _iconForSlug(String slug) {
-    switch (slug) {
-      case 'steak-night-reds':
-        return Icons.dinner_dining_rounded;
-      case 'under-20':
-        return Icons.attach_money_rounded;
-      case 'crisp-whites':
-        return Icons.wb_sunny_rounded;
-      case 'pasta-pairings':
-        return Icons.restaurant_rounded;
-      case 'summer-rose':
-        return Icons.local_florist_rounded;
-      case 'sparkling-picks':
-        return Icons.local_bar_rounded;
-      default:
-        return Icons.local_drink_rounded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => DiscoverCollectionScreen(collection: collection),
-          ),
-        );
-      },
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        elevation: 1.5,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFFF0E9E2),
-                child: Icon(
-                  _iconForSlug(collection.slug),
-                  size: 18,
-                  color: const Color(0xFFB58A63),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                collection.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                collection.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LearnCard extends StatelessWidget {
-  const _LearnCard({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
+/// Empty state when user has insufficient tasting history for For You.
+class _ForYouEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
-              style: theme.textTheme.titleSmall,
+              'For You',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
+              'Personalized picks will appear here once you have enough tasting history.',
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Try and rate a few wines in My Cellar to unlock recommendations.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.grey.shade600,
               ),
             ),
           ],
@@ -533,3 +291,48 @@ class _LearnCard extends StatelessWidget {
   }
 }
 
+class _LearnCard extends StatelessWidget {
+  const _LearnCard({
+    required this.article,
+    required this.onTap,
+  });
+
+  final LearnWineArticle article;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                article.title,
+                style: theme.textTheme.titleSmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                article.subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade700,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

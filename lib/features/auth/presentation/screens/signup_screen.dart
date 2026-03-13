@@ -163,7 +163,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Create your Pairings account',
+                  'Create your AIcork account',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),

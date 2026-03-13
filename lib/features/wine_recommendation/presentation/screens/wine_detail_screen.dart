@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/entities/wine_entity.dart';
 import '../widgets/wine_detail_sections.dart';
 import '../../../cellar/domain/controllers/cellar_controller.dart';
+import '../../../discover/presentation/providers/discover_providers.dart';
 import '../../data/models/wine_recommendation.dart';
 import '../../presentation/providers/recommendation_providers.dart';
 
@@ -140,7 +141,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
       final query = Uri.encodeComponent(title);
       debugPrint(
           'WineDetailScreen._openInventory: cannot launch URL=$uri, wine="$title", encodedQuery=$query');
-      _showSnack(context, 'Could not open store availability.');
+      _showSnack(context, 'Could not open LCBO.com');
       return;
     }
 
@@ -182,6 +183,10 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
             imageUrl: wine.thumbnailUrl,
           );
       if (!mounted) return;
+      if (_saveAsTried) {
+        ref.invalidate(cellarInsightsProvider);
+        ref.invalidate(discoverForYouProvider);
+      }
       _showSnack(context, 'Saved to My Cellar.');
       Navigator.of(context).maybePop();
     } catch (e) {
@@ -635,7 +640,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
                     ),
                   ),
                   child: const Text(
-                    'View store availability on LCBO.com',
+                    'View on LCBO.com',
                     textAlign: TextAlign.center,
                   ),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../discover/presentation/providers/discover_providers.dart';
 import '../../domain/controllers/cellar_controller.dart';
 import '../../domain/models/cellar_wine.dart';
 import 'chips/multi_select_chips.dart';
@@ -72,6 +73,7 @@ class _MarkAsTriedSheetContent extends StatefulWidget {
 class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
   late final TextEditingController _notesController;
   late final TextEditingController _purchaseNotesController;
+  late final TextEditingController _purchaseAmountController;
 
   double _rating = 4;
   DateTime _tastedAt = DateTime.now();
@@ -84,12 +86,18 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
     super.initState();
     _notesController = TextEditingController();
     _purchaseNotesController = TextEditingController();
+    _purchaseAmountController = TextEditingController(
+      text: widget.want.price != null && widget.want.price! > 0
+          ? widget.want.price!.toStringAsFixed(0)
+          : '',
+    );
   }
 
   @override
   void dispose() {
     _notesController.dispose();
     _purchaseNotesController.dispose();
+    _purchaseAmountController.dispose();
     super.dispose();
   }
 
@@ -115,8 +123,13 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
 
     final notes = _notesController.text.trim();
     final purchaseNotes = _purchaseNotesController.text.trim();
+    final amountStr = _purchaseAmountController.text.trim();
+    final purchaseAmount = double.tryParse(amountStr);
+    final priceToUse = purchaseAmount != null && purchaseAmount > 0
+        ? purchaseAmount
+        : widget.want.price;
     debugPrint(
-        'Sending tasting update payload: rating=$_rating, tastedAt=$_tastedAt, flavors=${_flavors.length}, styles=${_styles.length}');
+        'Sending tasting update payload: rating=$_rating, price=$priceToUse, tastedAt=$_tastedAt');
 
     try {
       await widget.ref.read(cellarControllerProvider.notifier).markWantAsTried(
@@ -127,6 +140,7 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
             customNotes: notes,
             purchaseNotes: purchaseNotes.isEmpty ? null : purchaseNotes,
             tastedAt: _tastedAt,
+            purchaseAmount: priceToUse,
           );
       debugPrint('Tasting save success');
       if (!mounted) return;
@@ -135,6 +149,8 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         debugPrint('Refreshing cellar providers after save');
         widget.ref.invalidate(cellarControllerProvider);
+        widget.ref.invalidate(cellarInsightsProvider);
+        widget.ref.invalidate(discoverForYouProvider);
         if (widget.parentContext.mounted) {
           ScaffoldMessenger.of(widget.parentContext).showSnackBar(
             const SnackBar(content: Text('Tasting saved successfully.')),
@@ -162,47 +178,77 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 8,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Mark as Tried', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(
-                widget.want.title,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Cancel',
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Mark as Tried',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.want.title,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.grey.shade700,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              StarRatingSelector(
-                value: _rating,
-                onChanged: (v) => setState(() => _rating = v),
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today_rounded, size: 18),
-                  label: Text(
-                    '${_tastedAt.year}-${_tastedAt.month.toString().padLeft(2, '0')}-${_tastedAt.day.toString().padLeft(2, '0')}',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text('Flavors', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 10),
-              MultiSelectChips(
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 16),
+                    StarRatingSelector(
+                      value: _rating,
+                      onChanged: (v) => setState(() => _rating = v),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _purchaseAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Purchase amount (\$)',
+                        hintText: 'e.g. 25',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _pickDate,
+                        icon: const Icon(Icons.calendar_today_rounded, size: 18),
+                        label: Text(
+                          '${_tastedAt.year}-${_tastedAt.month.toString().padLeft(2, '0')}-${_tastedAt.day.toString().padLeft(2, '0')}',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Flavors', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    MultiSelectChips(
                 options: _flavorOptions,
                 selected: _flavors,
                 onChanged: (s) => setState(() => _flavors = s),
@@ -217,47 +263,50 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _notesController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
-                  hintText: 'Quick thoughts, pairing, would you buy again?',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _purchaseNotesController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Purchase / Revisit notes (optional)',
-                  hintText: 'Where you bought it, revisit plans',
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: _isSaving ? null : _saveTasting,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF5C4A3F),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes (optional)',
+                        hintText: 'Quick thoughts, pairing, would you buy again?',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _purchaseNotesController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Purchase / Revisit notes (optional)',
+                        hintText: 'Where you bought it, revisit plans',
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton(
+                      onPressed: _isSaving ? null : _saveTasting,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF5C4A3F),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                      )
-                    : const Text('Save Tasting'),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text('Save Tasting'),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

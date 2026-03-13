@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../../cellar/domain/controllers/cellar_controller.dart';
+import '../../../cellar/domain/controllers/cellar_controller.dart'
+    show cellarControllerProvider, cellarNavigateToTabProvider;
+import '../../../scan/presentation/providers/scan_providers.dart';
 import '../providers/auth_providers.dart';
-import '../../data/auth_repository.dart';
 import 'login_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_service_screen.dart';
+import 'wine_preferences_screen.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key});
@@ -18,15 +25,8 @@ class MyProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _firstNameCtrl = TextEditingController();
-  final _lastNameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-
   bool _isLoading = true;
-  bool _isSaving = false;
-  bool _isDeleting = false;
+  Map<String, dynamic> _profile = const {};
 
   @override
   void initState() {
@@ -35,76 +35,22 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       final repo = ref.read(authRepositoryProvider);
       final me = await repo.fetchProfile();
-      _firstNameCtrl.text = me['first_name'] as String? ?? '';
-      _lastNameCtrl.text = me['last_name'] as String? ?? '';
-      _emailCtrl.text = me['email'] as String? ?? '';
-      _phoneCtrl.text = me['phone_number'] as String? ?? '';
-      debugPrint('MyProfileScreen: profile loaded for ${_emailCtrl.text}');
-    } catch (e) {
-      debugPrint('MyProfileScreen: fetchProfile error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load profile. Please try again.'),
-          ),
-        );
-      }
-    } finally {
       if (mounted) {
         setState(() {
+          _profile = me;
           _isLoading = false;
         });
       }
-    }
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_isSaving) return;
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final firstName = _firstNameCtrl.text.trim();
-    final lastName = _lastNameCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
-
-    try {
-      final repo = ref.read(authRepositoryProvider);
-      await repo.updateProfile(
-        firstName: firstName,
-        lastName: lastName,
-        phoneNumber: phone,
-      );
-      debugPrint('MyProfileScreen: profile updated successfully');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated.')),
-      );
-      // Refresh auth state (e.g. firstName) if needed
-      await ref.read(authProvider.notifier).hydrate();
     } catch (e) {
-      debugPrint('MyProfileScreen: updateProfile error: $e');
+      if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Failed to update profile. Please try again later.'),
-          ),
+          const SnackBar(content: Text('Failed to load profile.')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
       }
     }
   }
@@ -112,353 +58,395 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   Future<void> _logout() async {
     await ref.read(authProvider.notifier).logout();
     ref.invalidate(cellarControllerProvider);
-    debugPrint('Invalidating cellarProvider on logout');
+    ref.invalidate(winePreferencesProvider);
     if (!mounted) return;
-    Navigator.of(context).pop();
+    context.go(LoginScreen.routePath);
   }
 
   void _openChangePassword() {
-    debugPrint('Opening Change Password flow');
     context.push('${MyProfileScreen.routePath}/change-password');
   }
 
-  Future<void> _deleteAccount() async {
-    debugPrint('Delete account requested');
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete account'),
-        content: const Text(
-          'This action will permanently delete your account and cellar data.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+  Future<void> _openEditProfile() async {
+    await context.push('${MyProfileScreen.routePath}/edit');
+    if (mounted) _loadProfile();
+  }
 
-    debugPrint('Prompting for current password before account deletion');
-    final password = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _DeleteAccountPasswordDialog(
-        onCancel: () => Navigator.of(ctx).pop(),
-        onSubmit: (p) => Navigator.of(ctx).pop(p),
-      ),
-    );
-    if (password == null || password.isEmpty || !mounted) return;
+  void _navigateToCellarTried() {
+    ref.read(cellarNavigateToTabProvider.notifier).state = 1;
+    context.go('/cellar');
+  }
 
-    setState(() => _isDeleting = true);
-    try {
-      final repo = ref.read(authRepositoryProvider);
-      await repo.deleteAccount(currentPassword: password);
-      debugPrint('Account deletion successful; clearing auth and cellar state');
-      await ref.read(authProvider.notifier).logout();
-      ref.invalidate(cellarControllerProvider);
-      if (!mounted) return;
+  void _navigateToCellarWants() {
+    ref.read(cellarNavigateToTabProvider.notifier).state = 0;
+    context.go('/cellar');
+  }
+
+  void _navigateToScan() {
+    context.go('/scan');
+  }
+
+  Future<void> _sendFeedback() async {
+    final version = '1.0.0';
+    final device = '${Platform.operatingSystem}';
+    final body = 'App version: $version\nDevice: $device\n\n';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'feedback@example.com',
+      query: _encodeQuery({
+        'subject': 'Wine App Feedback',
+        'body': body,
+      }),
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your account has been deleted.')),
+        const SnackBar(content: Text('Could not open email app.')),
       );
-      context.go(LoginScreen.routePath);
-    } catch (e) {
-      debugPrint('Delete account password verification failed');
-      if (mounted) {
-        final message = e is Exception
-            ? e.toString().replaceFirst('Exception: ', '')
-            : 'Failed to delete account. Please try again.';
-        final friendly = message.contains('incorrect') || message.contains('403')
-            ? 'Current password is incorrect.'
-            : message;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendly)),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDeleting = false);
     }
   }
 
-  @override
-  void dispose() {
-    _firstNameCtrl.dispose();
-    _lastNameCtrl.dispose();
-    _emailCtrl.dispose();
-    _phoneCtrl.dispose();
-    super.dispose();
+  String _encodeQuery(Map<String, String> params) {
+    return params.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          titleSpacing: 24,
+          title: Text('My Page', style: theme.textTheme.titleLarge),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final firstName = _profile['first_name'] as String? ?? '';
+    final lastName = _profile['last_name'] as String? ?? '';
+    final email = _profile['email'] as String? ?? '';
+    final displayName = [firstName, lastName].where((s) => s.isNotEmpty).join(' ').trim();
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 24,
-        title: Text(
-          'My profile',
-          style: theme.textTheme.titleLarge,
-        ),
+        title: Text('My Page', style: theme.textTheme.titleLarge),
       ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Account',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _firstNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'First name',
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'First name is required.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _lastNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Last name',
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Last name is required.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _emailCtrl,
-                        readOnly: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _phoneCtrl,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone number',
-                        ),
-                        validator: (v) {
-                          final value = v?.trim() ?? '';
-                          if (value.isEmpty) {
-                            return 'Phone number is required.';
-                          }
-                          if (!RegExp(r'^[+\d][\d\s\-]{6,}$').hasMatch(value)) {
-                            return 'Please enter a valid phone number.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: _isSaving ? null : _save,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF5C4A3F),
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          child: Text(
-                            _isSaving ? 'Saving...' : 'Save changes',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Security',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _openChangePassword,
-                        style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Color(0xFF5C4A3F)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        child: const Text('Change password'),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Session',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _logout,
-                        style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Color(0xFF5C4A3F)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        child: const Text('Log out'),
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        'Danger zone',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _isDeleting ? null : _deleteAccount,
-                        style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Colors.red),
-                          foregroundColor: Colors.red,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        child: Text(
-                          _isDeleting ? 'Deleting...' : 'Delete account',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+      body: RefreshIndicator(
+        onRefresh: _loadProfile,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ProfileCard(
+                displayName: displayName.isEmpty ? 'Wine explorer' : displayName,
+                subtitle: displayName.isEmpty ? email : null,
+                onEdit: () => _openEditProfile(),
               ),
+              const SizedBox(height: 24),
+              _SectionTitle(title: 'Your Wine Stats'),
+              const SizedBox(height: 12),
+              _WineStatsRow(
+                onTriedTap: _navigateToCellarTried,
+                onSavedTap: _navigateToCellarWants,
+                onScannedTap: _navigateToScan,
+              ),
+              const SizedBox(height: 24),
+              _SectionTitle(title: 'Preferences'),
+              const SizedBox(height: 8),
+              _SettingsCard(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.wine_bar_rounded,
+                    label: 'Wine preferences',
+                    onTap: () => context.push('/profile/wine-preferences'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _SectionTitle(title: 'Support'),
+              const SizedBox(height: 8),
+              _SettingsCard(
+                children: [
+                  _SettingsRow(
+                    icon: Icons.feedback_outlined,
+                    label: 'Send feedback',
+                    onTap: _sendFeedback,
+                  ),
+                  _SettingsRow(
+                    icon: Icons.privacy_tip_outlined,
+                    label: 'Privacy policy',
+                    onTap: () => context.push(PrivacyPolicyScreen.routePath),
+                  ),
+                  _SettingsRow(
+                    icon: Icons.description_outlined,
+                    label: 'Terms of service',
+                    onTap: () => context.push(TermsOfServiceScreen.routePath),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _SectionTitle(title: 'Account'),
+              const SizedBox(height: 8),
+              _SettingsCard(
+                children: [
+                  _SettingsRow(icon: Icons.person_outline_rounded, label: 'Edit profile', onTap: () => _openEditProfile()),
+                  _SettingsRow(icon: Icons.lock_outline_rounded, label: 'Change password', onTap: _openChangePassword),
+                  _SettingsRow(icon: Icons.logout_rounded, label: 'Log out', onTap: _logout),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _DeleteAccountPasswordDialog extends StatefulWidget {
-  const _DeleteAccountPasswordDialog({
-    required this.onCancel,
-    required this.onSubmit,
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.displayName,
+    this.subtitle,
+    required this.onEdit,
   });
 
-  final VoidCallback onCancel;
-  final void Function(String password) onSubmit;
-
-  @override
-  State<_DeleteAccountPasswordDialog> createState() =>
-      _DeleteAccountPasswordDialogState();
-}
-
-class _DeleteAccountPasswordDialogState
-    extends State<_DeleteAccountPasswordDialog> {
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
-
-  @override
-  void dispose() {
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final password = _passwordController.text.trim();
-    if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter your current password to delete your account.',
-          ),
-        ),
-      );
-      return;
-    }
-    widget.onSubmit(password);
-  }
+  final String displayName;
+  final String? subtitle;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Confirm deletion'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Please enter your current password to delete your account.',
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Current password',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+    final theme = Theme.of(context);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 32,
+              backgroundColor: const Color(0xFFF0E9E2),
+              child: Icon(Icons.person_rounded, size: 36, color: Colors.brown.shade300),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: onEdit,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Edit profile'),
+                  ),
+                ],
               ),
             ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _submit(),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: widget.onCancel,
-          child: const Text('Cancel'),
+          ],
         ),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _passwordController,
-          builder: (context, value, _) {
-            final hasPassword = value.text.trim().isNotEmpty;
-            return FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: hasPassword ? () => _submit() : null,
-              child: const Text('Delete my account'),
-            );
-          },
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      title,
+      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _WineStatsRow extends ConsumerWidget {
+  const _WineStatsRow({
+    required this.onTriedTap,
+    required this.onSavedTap,
+    required this.onScannedTap,
+  });
+
+  final VoidCallback onTriedTap;
+  final VoidCallback onSavedTap;
+  final VoidCallback onScannedTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cellarAsync = ref.watch(cellarControllerProvider);
+    final scanCountAsync = ref.watch(scanHistoryCountProvider);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _StatTile(
+            value: cellarAsync.valueOrNull?.tried.length ?? 0,
+            label: 'Tried wines',
+            onTap: onTriedTap,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatTile(
+            value: cellarAsync.valueOrNull?.wants.length ?? 0,
+            label: 'Saved wines',
+            onTap: onSavedTap,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatTile(
+            value: scanCountAsync.valueOrNull ?? 0,
+            label: 'Scanned wines',
+            onTap: onScannedTap,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
+
+  final int value;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF5C4A3F),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.grey.shade700,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({this.children, this.child});
+
+  final List<Widget>? children;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (child != null) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: 1,
+        child: child,
+      );
+    }
+    final list = children!;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 1,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0) const Divider(height: 1),
+            list[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = destructive ? Colors.red.shade700 : Colors.grey.shade800;
+
+    return ListTile(
+      leading: Icon(icon, size: 22, color: destructive ? Colors.red.shade600 : Colors.grey.shade600),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: color,
+          fontWeight: destructive ? FontWeight.w500 : null,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),
+      onTap: onTap,
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../cellar/domain/controllers/cellar_controller.dart';
 import '../providers/auth_providers.dart';
 import 'signup_screen.dart';
+import 'wine_preferences_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -45,6 +46,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       if (!mounted) return;
       ref.invalidate(cellarControllerProvider);
+      ref.invalidate(winePreferencesProvider);
       debugPrint('Auth changed, refreshing cellar state after login');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Welcome back!')),
@@ -82,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Welcome back to Pairings',
+                  'Welcome back to AIcork',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),

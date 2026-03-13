@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../wine_recommendation/domain/entities/wine_entity.dart';
 import '../../../wine_recommendation/presentation/widgets/wine_card.dart';
@@ -99,10 +100,7 @@ class _DiscoverCollectionScreenState
                 return WineCard(
                   wine: wine,
                   onTap: () {
-                    Navigator.of(context).pushNamed(
-                      '/home/results/detail',
-                      arguments: wine,
-                    );
+                    context.push('/home/results/detail', extra: wine);
                   },
                 );
               },

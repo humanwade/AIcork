@@ -198,6 +198,7 @@ class CellarApiService {
     List<String>? aromas,
     List<String>? bodyStyle,
     String? purchaseNotes,
+    double? price,
   }) async {
     debugPrint(
         'CellarApiService.update: id=$id, rating=$rating, isTried=$isTried');
@@ -213,6 +214,7 @@ class CellarApiService {
       if (aromas != null) 'aromas': aromas,
       if (bodyStyle != null) 'body_style': bodyStyle,
       if (purchaseNotes != null) 'purchase_notes': purchaseNotes,
+      if (price != null) 'price': price,
     };
     debugPrint('CellarApiService.update: sending payload keys: ${data.keys.join(", ")}');
     final response = await _dio.patch(
@@ -230,6 +232,51 @@ class CellarApiService {
     debugPrint('CellarApiService.delete: id=$id');
     final response = await _dio.delete('/cellar/$id');
     debugPrint('CellarApiService.delete: response status=${response.statusCode}');
+  }
+
+  Future<CellarInsights> fetchInsights() async {
+    debugPrint('CellarApiService.fetchInsights');
+    final response = await _dio.get('/cellar/insights');
+    final data = response.data as Map<String, dynamic>;
+    return CellarInsights.fromJson(data);
+  }
+}
+
+class CellarInsights {
+  final String? summaryText;
+  final List<String> preferredWineTypes;
+  final List<String> preferredFlavors;
+  final List<String> preferredBodyStyles;
+  final double? averagePreferredPrice;
+  final bool enoughData;
+
+  const CellarInsights({
+    this.summaryText,
+    this.preferredWineTypes = const [],
+    this.preferredFlavors = const [],
+    this.preferredBodyStyles = const [],
+    this.averagePreferredPrice,
+    this.enoughData = false,
+  });
+
+  factory CellarInsights.fromJson(Map<String, dynamic> json) {
+    return CellarInsights(
+      summaryText: json['summary_text'] as String?,
+      preferredWineTypes: _parseStringList(json['preferred_wine_types']),
+      preferredFlavors: _parseStringList(json['preferred_flavors']),
+      preferredBodyStyles: _parseStringList(json['preferred_body_styles']),
+      averagePreferredPrice:
+          (json['average_preferred_price'] as num?)?.toDouble(),
+      enoughData: json['enough_data'] as bool? ?? false,
+    );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return const [];
+    if (value is List) {
+      return value.whereType<String>().toList();
+    }
+    return const [];
   }
 }
 

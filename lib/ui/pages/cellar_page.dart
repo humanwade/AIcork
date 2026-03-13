@@ -1,13 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/cellar/domain/controllers/cellar_controller.dart';
+import '../../features/cellar/domain/controllers/cellar_controller.dart'
+    show
+        cellarControllerProvider,
+        cellarInsightsProvider,
+        cellarNavigateToTabProvider;
 import '../../features/cellar/domain/models/cellar_wine.dart';
+import '../../features/cellar/presentation/widgets/taste_profile_insights_card.dart';
 import '../../features/cellar/domain/models/tried_wine_entry.dart';
 import '../../features/cellar/domain/models/wine_type.dart';
 import '../../features/cellar/presentation/screens/forms/add_cellar_wine_screen.dart';
@@ -23,10 +27,27 @@ class CellarPage extends ConsumerStatefulWidget {
   ConsumerState<CellarPage> createState() => _CellarPageState();
 }
 
-class _CellarPageState extends ConsumerState<CellarPage> {
+class _CellarPageState extends ConsumerState<CellarPage>
+    with SingleTickerProviderStateMixin {
   WineType? _wantsFilter;
   WineType? _triedFilter;
   String _triedQuery = '';
+  late final TextEditingController _triedSearchController;
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _triedSearchController = TextEditingController(text: _triedQuery);
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _triedSearchController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,48 +129,22 @@ class _CellarPageState extends ConsumerState<CellarPage> {
     }
 
     final state = ref.watch(cellarControllerProvider);
+    ref.listen<int?>(cellarNavigateToTabProvider, (prev, next) {
+      if (next != null && next >= 0 && next <= 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _tabController.animateTo(next);
+            ref.read(cellarNavigateToTabProvider.notifier).state = null;
+          }
+        });
+      }
+    });
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          titleSpacing: 24,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('My Cellar', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 2),
-              Text(
-                'Wants and tasting history',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.brown.shade300,
-                ),
-              ),
-            ],
-          ),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: theme.colorScheme.primary,
-                unselectedLabelColor: theme.hintColor,
-                indicatorColor: theme.colorScheme.primary,
-                indicatorSize: TabBarIndicatorSize.label,
-                tabs: const [
-                  Tab(text: 'Wants'),
-                  Tab(text: 'Tried'),
-                ],
-              ),
-            ),
-          ),
-        ),
-        body: state.when(
+    return Scaffold(
+      body: SafeArea(
+        child: state.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) {
-            // Log full error for developers, but keep UI clean for users.
             debugPrint('Cellar load error: $e');
             return const _EmptyMessage(
               title: 'Your cellar is resting',
@@ -164,33 +159,91 @@ class _CellarPageState extends ConsumerState<CellarPage> {
               filter: _triedFilter,
               query: _triedQuery,
             );
+            final insightsAsync = ref.watch(cellarInsightsProvider);
 
-            return TabBarView(
-              children: [
-                _WantsTab(
-                  entries: wants,
-                  selectedFilter: _wantsFilter,
-                  onFilterChanged: (t) => setState(() => _wantsFilter = t),
-                  onMarkAsTried: (w) =>
-                      showMarkAsTriedSheet(context, ref, want: w),
-                ),
-                _TriedTab(
-                  entries: tried,
-                  selectedFilter: _triedFilter,
-                  query: _triedQuery,
-                  onFilterChanged: (t) => setState(() => _triedFilter = t),
-                  onQueryChanged: (q) => setState(() => _triedQuery = q),
-                ),
-              ],
+            return NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Cellar',
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Wants and tasting history',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.brown.shade300,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: insightsAsync.when(
+                      data: (insights) =>
+                          TasteProfileInsightsCard(insights: insights),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _TabBarSliverDelegate(
+                      tabBar: TabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        labelColor: theme.colorScheme.primary,
+                        unselectedLabelColor: theme.hintColor,
+                        indicatorColor: theme.colorScheme.primary,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        tabs: const [
+                          Tab(text: 'Wants'),
+                          Tab(text: 'Tried'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
+              },
+              body: TabBarView(
+                controller: _tabController,
+                children: [
+                  _WantsTab(
+                    entries: wants,
+                    selectedFilter: _wantsFilter,
+                    onFilterChanged: (t) =>
+                        setState(() => _wantsFilter = t),
+                    onMarkAsTried: (w) =>
+                        showMarkAsTriedSheet(context, ref, want: w),
+                  ),
+                  _TriedTab(
+                    entries: tried,
+                    searchController: _triedSearchController,
+                    selectedFilter: _triedFilter,
+                    onFilterChanged: (t) =>
+                        setState(() => _triedFilter = t),
+                    onQueryChanged: (q) =>
+                        setState(() => _triedQuery = q),
+                  ),
+                ],
+              ),
             );
           },
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showAddMenu(context),
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.add),
-        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddMenu(context),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -308,35 +361,49 @@ class _WantsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        _TypeFilterChips(
-          selected: selectedFilter,
-          onChanged: onFilterChanged,
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 72;
+    return CustomScrollView(
+      key: const PageStorageKey<String>('wants'),
+      slivers: [
+        SliverToBoxAdapter(
+          child: _TypeFilterChips(
+            selected: selectedFilter,
+            onChanged: onFilterChanged,
+          ),
         ),
-        Expanded(
-          child: entries.isEmpty
-              ? _EmptyMessage(
-                  title: 'No saved wines yet',
-                  message:
-                      'Save wines from recommendations or tap + to add one.',
-                )
-              : ListView.separated(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (context, index) {
-                    final w = entries[index];
-                    return _CellarWineCard(
+        if (entries.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            fillOverscroll: false,
+            child: Center(
+              child: _EmptyMessage(
+                title: 'No saved wines yet',
+                message:
+                    'Save wines from recommendations or tap + to add one.',
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomPadding),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final w = entries[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _CellarWineCard(
                       wine: w,
                       trailing: const SizedBox.shrink(),
                       onTap: () =>
                           context.push('/cellar/want-detail', extra: w),
-                    );
-                  },
-                ),
-        ),
+                    ),
+                  );
+                },
+                childCount: entries.length,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -346,54 +413,68 @@ class _WantsTab extends ConsumerWidget {
 class _TriedTab extends ConsumerWidget {
   const _TriedTab({
     required this.entries,
+    required this.searchController,
     required this.selectedFilter,
-    required this.query,
     required this.onFilterChanged,
     required this.onQueryChanged,
   });
   final List<TriedWineEntry> entries;
+  final TextEditingController searchController;
   final WineType? selectedFilter;
-  final String query;
   final ValueChanged<WineType?> onFilterChanged;
   final ValueChanged<String> onQueryChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-          child: TextField(
-            onChanged: onQueryChanged,
-            decoration: const InputDecoration(
-              labelText: 'Search Tried',
-              hintText: 'e.g. chocolate, crisp, cherry',
-              prefixIcon: Icon(Icons.search_rounded),
+    final bottomPadding = MediaQuery.paddingOf(context).bottom + 72;
+    return CustomScrollView(
+      key: const PageStorageKey<String>('tried'),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: TextField(
+              controller: searchController,
+              onChanged: onQueryChanged,
+              decoration: const InputDecoration(
+                labelText: 'Search Tried',
+                hintText: 'e.g. chocolate, crisp, cherry',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
             ),
           ),
         ),
-        _TypeFilterChips(
-          selected: selectedFilter,
-          onChanged: onFilterChanged,
+        SliverToBoxAdapter(
+          child: _TypeFilterChips(
+            selected: selectedFilter,
+            onChanged: onFilterChanged,
+          ),
         ),
-        Expanded(
-          child: entries.isEmpty
-              ? _EmptyMessage(
-                  title: 'No tastings yet',
-                  message:
-                      'Tap + and log a wine you tried with quick tags and a rating.',
-                )
-              : ListView.separated(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (context, index) {
-                    final t = entries[index];
-                    final hasImage =
-                        (t.imageUrl ?? '').trim().isNotEmpty;
-                    return Card(
+        if (entries.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            fillOverscroll: false,
+            child: Center(
+              child: _EmptyMessage(
+                title: 'No tastings yet',
+                message:
+                    'Tap + and log a wine you tried with quick tags and a rating.',
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomPadding),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final t = entries[index];
+                  final hasImage =
+                      (t.imageUrl ?? '').trim().isNotEmpty;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Card(
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
                         onTap: () =>
@@ -451,7 +532,10 @@ class _TriedTab extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      t.type.label,
+                                      t.type.label +
+                                          (t.price != null && t.price! > 0
+                                              ? ' · \$${t.price!.toStringAsFixed(0)}'
+                                              : ''),
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                         color: Colors.grey.shade700,
@@ -502,13 +586,44 @@ class _TriedTab extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-        ),
+                    ),
+                  );
+                },
+                childCount: entries.length,
+              ),
+            ),
+          ),
       ],
     );
   }
+}
+
+/// Pinned header: Wants / Tried tab row only. Filters and search scroll with content.
+class _TabBarSliverDelegate extends SliverPersistentHeaderDelegate {
+  _TabBarSliverDelegate({required this.tabBar});
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Align(alignment: Alignment.centerLeft, child: tabBar),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      false;
 }
 
 class _TypeFilterChips extends StatelessWidget {

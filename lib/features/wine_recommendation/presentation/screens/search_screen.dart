@@ -10,10 +10,7 @@ import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/loading_overlay.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/screens/login_screen.dart';
-import '../../../auth/presentation/screens/profile_screen.dart';
-import 'results_screen.dart';
+import '../../../auth/presentation/screens/wine_preferences_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -28,14 +25,13 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _formKey = GlobalKey<FormState>();
   final _queryController = TextEditingController();
-  final _postalController = TextEditingController();
   int _topK = 3;
   double _budget = 50; // Slider: 10–200, step 5
+  bool _initializedFromPrefs = false;
 
   @override
   void dispose() {
     _queryController.dispose();
-    _postalController.dispose();
     super.dispose();
   }
 
@@ -51,13 +47,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final query = _queryController.text.trim();
     final budget = _budget;
-    final postal = _postalController.text.trim();
+
+    final prefs = ref.read(winePreferencesProvider);
+    final winePrefs = (prefs.isLoaded &&
+            (prefs.preferredStyles.isNotEmpty ||
+                prefs.preferredBody.isNotEmpty ||
+                prefs.preferredFlavors.isNotEmpty ||
+                prefs.defaultBudget > 0))
+        ? WinePreferencesPayload(
+            preferredStyles: prefs.preferredStyles.toList(),
+            preferredBody: prefs.preferredBody,
+            preferredFlavors: prefs.preferredFlavors.toList(),
+            defaultBudget: prefs.defaultBudget,
+          )
+        : null;
 
     final request = RecommendationRequest(
       query: query,
       maxBudget: budget,
       topK: _topK,
-      postalCode: postal,
+      winePreferences: winePrefs,
     );
 
     ref.read(recentSearchesProvider.notifier).add(
@@ -65,7 +74,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             query: query,
             maxBudget: budget.toDouble(),
             topK: _topK,
-            postalCode: postal,
           ),
         );
 
@@ -87,20 +95,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _queryController.text = search.query;
       _budget = search.maxBudget.clamp(10.0, 200.0);
       _topK = search.topK;
-      _postalController.text = search.postalCode;
     });
+  }
+
+  void _initFromPrefs(WinePreferences prefs) {
+    if (!prefs.isLoaded || _initializedFromPrefs) return;
+    _initializedFromPrefs = true;
+    if (prefs.defaultBudget > 0 && prefs.defaultBudget >= 10 && prefs.defaultBudget <= 200) {
+      setState(() => _budget = prefs.defaultBudget);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final recState = ref.watch(recommendationNotifierProvider);
     final recent = ref.watch(recentSearchesProvider);
+    final prefs = ref.watch(winePreferencesProvider);
+    _initFromPrefs(prefs);
 
     final theme = Theme.of(context);
     final media = MediaQuery.of(context);
     final isCompact = media.size.height < 700;
-
-    final auth = ref.watch(authProvider);
 
     return LoadingOverlay(
       isLoading: recState.isSubmitting,
@@ -113,7 +128,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Pairings',
+                  'AIcork',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 2),
@@ -125,20 +140,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                tooltip: auth.isAuthenticated ? 'Profile' : 'Sign in',
-                onPressed: () {
-                  if (auth.isAuthenticated) {
-                    debugPrint('SearchScreen: profile icon tapped (logged in)');
-                    context.push(MyProfileScreen.routePath);
-                  } else {
-                    context.push(LoginScreen.routePath);
-                  }
-                },
-                icon: const Icon(Icons.person_outline_rounded),
-              ),
-            ],
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -279,25 +280,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _postalController,
-                          textInputAction: TextInputAction.done,
-                          textCapitalization: TextCapitalization.characters,
-                          decoration: const InputDecoration(
-                            labelText: 'Postal code',
-                            hintText: 'e.g. M1T 2G8',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Postal code helps show inventory near you.';
-                            }
-                            if (value.trim().length < 5) {
-                              return 'Please enter a valid postal code.';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 24),
                         SizedBox(

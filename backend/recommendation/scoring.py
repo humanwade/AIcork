@@ -1,9 +1,22 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from .query_parser import ParsedQuery
+from wine_type import normalize_wine_type
+
+if TYPE_CHECKING:
+    from .user_profile import UserTasteProfile
+    from .wine_preferences import WinePreferences
+
+logger = logging.getLogger("recommendation")
+
+# Clamp user preference bonus to avoid overpowering query intent.
+# Preferences must NEVER dominate the ranking.
+USER_PREF_BONUS_MIN = -0.05
+USER_PREF_BONUS_MAX = 0.10
 
 
 @dataclass
@@ -139,4 +152,130 @@ def score_candidate(
         budget_fit=budget_fit,
         quality_confidence=quality_confidence,
     )
+
+
+def compute_user_preference_bonus(
+    profile: "UserTasteProfile",
+    doc: Any,
+    price: float,
+) -> float:
+    """
+    Compute a small bonus/penalty based on user taste profile.
+    Clamped to [USER_PREF_BONUS_MIN, USER_PREF_BONUS_MAX].
+    """
+    meta: Dict[str, Any] = doc.metadata or {}
+    bonus = 0.0
+
+    # Wine type match (normalize candidate to app types: Red, White, Rosé, etc.)
+    cand_type = normalize_wine_type(
+        raw_style=meta.get("style") or meta.get("wine_style"),
+        title=meta.get("systitle") or "",
+        notes=meta.get("lcbo_tastingnotes") or "",
+    )
+    for pref in profile.preferred_wine_types:
+        if pref and pref.strip() and pref.strip() == cand_type:
+            bonus += 0.04
+            break
+
+    # Flavor overlap (from tasting notes)
+    notes = _safe_lower(meta.get("lcbo_tastingnotes") or "")
+    for pf in profile.preferred_flavors:
+        if pf in notes:
+            bonus += 0.02
+            break
+
+    # Body/style overlap
+    cand_body = _safe_lower(str(meta.get("body") or ""))
+    for pb in profile.preferred_body_styles:
+        if pb in cand_body:
+            bonus += 0.03
+            break
+
+    # Price proximity
+    if profile.average_preferred_price is not None and profile.average_preferred_price > 0:
+        ratio = price / profile.average_preferred_price
+        if 0.7 <= ratio <= 1.3:
+            bonus += 0.03
+        elif 0.5 <= ratio <= 1.5:
+            bonus += 0.01
+
+    # Avoid traits penalty
+    for avoid in profile.avoid_traits:
+        if avoid and avoid in notes:
+            bonus -= 0.05
+            break
+
+    clamped = max(USER_PREF_BONUS_MIN, min(USER_PREF_BONUS_MAX, bonus))
+    return clamped
+
+
+def compute_combined_preference_bonus(
+    profile: Optional["UserTasteProfile"],
+    prefs: Optional["WinePreferences"],
+    doc: Any,
+    price: float,
+) -> float:
+    """
+    Combine taste profile (from DB) and wine preferences (from UI) into one bonus.
+    Clamped to [USER_PREF_BONUS_MIN, USER_PREF_BONUS_MAX].
+    Returns 0 if both are None/empty.
+    """
+    total = 0.0
+    if profile:
+        total += compute_user_preference_bonus(profile, doc, price)
+    if prefs and not prefs.is_empty():
+        total += compute_wine_preference_bonus(prefs, doc, price)
+    return max(USER_PREF_BONUS_MIN, min(USER_PREF_BONUS_MAX, total))
+
+
+def compute_wine_preference_bonus(
+    prefs: "WinePreferences",
+    doc: Any,
+    price: float,
+) -> float:
+    """
+    Compute a small bonus from Wine Preferences (UI settings).
+    Used as soft ranking signal only; never filters.
+    Clamped to [USER_PREF_BONUS_MIN, USER_PREF_BONUS_MAX].
+    """
+    if prefs.is_empty():
+        return 0.0
+
+    meta: Dict[str, Any] = doc.metadata or {}
+    bonus = 0.0
+
+    # 1. Wine style match
+    cand_type = normalize_wine_type(
+        raw_style=meta.get("style") or meta.get("wine_style"),
+        title=meta.get("systitle") or "",
+        notes=meta.get("lcbo_tastingnotes") or "",
+    )
+    for pref in prefs.preferred_styles:
+        if pref and pref.strip() and pref.strip() == cand_type:
+            bonus += 0.04
+            break
+
+    # 2. Body match
+    cand_body = _safe_lower(str(meta.get("body") or ""))
+    pref_body = _safe_lower(prefs.preferred_body or "")
+    if pref_body and pref_body in cand_body:
+        bonus += 0.03
+
+    # 3. Flavor profile match (tasting notes text)
+    notes = _safe_lower(meta.get("lcbo_tastingnotes") or "")
+    for pf in prefs.preferred_flavors:
+        if pf and pf.strip() and _safe_lower(pf) in notes:
+            bonus += 0.02
+            break
+
+    # 4. Budget proximity
+    if prefs.default_budget and prefs.default_budget > 0:
+        ratio = price / prefs.default_budget
+        if 0.7 <= ratio <= 1.3:
+            bonus += 0.03
+        elif 0.5 <= ratio <= 1.5:
+            bonus += 0.01
+
+    clamped = max(USER_PREF_BONUS_MIN, min(USER_PREF_BONUS_MAX, bonus))
+    return clamped
 

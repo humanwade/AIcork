@@ -9,19 +9,20 @@ import 'package:image_picker/image_picker.dart';
 import '../../features/scan/data/datasources/scanner_api_service.dart';
 import '../../features/scan/domain/models/scan_wine_response.dart';
 import '../../features/scan/domain/models/scan_history_entry.dart';
+import '../../features/scan/presentation/providers/scan_providers.dart';
 import '../../features/wine_recommendation/domain/entities/wine_entity.dart';
 
-class ScanPage extends StatefulWidget {
+class ScanPage extends ConsumerStatefulWidget {
   const ScanPage({super.key});
 
   static const String routePath = '/scan';
   static const String routeName = 'scan';
 
   @override
-  State<ScanPage> createState() => _ScanPageState();
+  ConsumerState<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState extends State<ScanPage> {
+class _ScanPageState extends ConsumerState<ScanPage> {
   String? _imagePath;
   final ImagePicker _picker = ImagePicker();
   bool _isRecognizing = false;
@@ -145,7 +146,7 @@ class _ScanPageState extends State<ScanPage> {
         sku: wine.sku,
         imageUrl: wine.thumbnailUrl,
       );
-      // Refresh history in background.
+      ref.invalidate(scanHistoryCountProvider);
       _loadHistory();
       context.push('/home/results/detail', extra: wine);
     } catch (e) {
@@ -314,6 +315,7 @@ class _ScanPageState extends State<ScanPage> {
                                 onPressed: () async {
                                   await _scannerApi.deleteScanHistory(h.id);
                                   if (!mounted) return;
+                                  ref.invalidate(scanHistoryCountProvider);
                                   setState(() {
                                     _history = _history
                                         .where((e) => e.id != h.id)

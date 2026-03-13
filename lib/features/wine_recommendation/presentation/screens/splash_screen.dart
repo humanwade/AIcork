@@ -79,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Pairings',
+                  'AIcork',
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: Colors.white,
                     letterSpacing: 0.4,

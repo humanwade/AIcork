@@ -85,6 +85,17 @@ class WineEntryUpdate(BaseModel):
     purchase_notes: Optional[str] = None
 
 
+class CellarInsightsOut(BaseModel):
+    """Taste profile summary for My Cellar insights card."""
+
+    summary_text: Optional[str] = None
+    preferred_wine_types: List[str] = []
+    preferred_flavors: List[str] = []
+    preferred_body_styles: List[str] = []
+    average_preferred_price: Optional[float] = None
+    enough_data: bool = False
+
+
 class WineEntryOut(BaseModel):
     id: int
     user_id: int

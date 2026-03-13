@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../discover/presentation/providers/discover_providers.dart';
 import '../../../domain/controllers/cellar_controller.dart';
 import '../../../domain/models/tried_wine_entry.dart';
 
@@ -58,7 +59,11 @@ class TriedWineDetailScreen extends ConsumerWidget {
                   return;
                 case _TriedDetailAction.moveToWants:
                   await controller.moveTriedToWant(effective);
-                  if (context.mounted) Navigator.of(context).pop();
+                  if (context.mounted) {
+                    ref.invalidate(cellarInsightsProvider);
+                    ref.invalidate(discoverForYouProvider);
+                    Navigator.of(context).pop();
+                  }
                   return;
                 case _TriedDetailAction.delete:
                   final confirmed = await showDialog<bool>(
@@ -82,7 +87,11 @@ class TriedWineDetailScreen extends ConsumerWidget {
                   );
                   if (confirmed != true) return;
                   await controller.removeTried(effective.id);
-                  if (context.mounted) Navigator.of(context).pop();
+                  if (context.mounted) {
+                    ref.invalidate(cellarInsightsProvider);
+                    ref.invalidate(discoverForYouProvider);
+                    Navigator.of(context).pop();
+                  }
                   return;
               }
             },

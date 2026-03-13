@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../discover/presentation/providers/discover_providers.dart';
 import '../../../domain/controllers/cellar_controller.dart';
 import '../../../domain/models/tried_wine_entry.dart';
 import '../../../domain/models/wine_source.dart';
@@ -131,7 +132,11 @@ class _AddTriedWineScreenState extends ConsumerState<AddTriedWineScreen> {
         'AddTriedWineScreen: saving tried entry title="${entry.title}", rating=${entry.rating}');
     try {
       await ref.read(cellarControllerProvider.notifier).addTried(entry);
-      if (mounted) context.pop();
+      if (mounted) {
+        ref.invalidate(cellarInsightsProvider);
+        ref.invalidate(discoverForYouProvider);
+        context.pop();
+      }
     } catch (e) {
       debugPrint('AddTriedWineScreen: addTried error: $e');
       if (mounted) {

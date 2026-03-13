@@ -196,7 +196,7 @@ class CellarWineDetailScreen extends ConsumerWidget {
               FilledButton.icon(
                 onPressed: () => _openInventory(context),
                 icon: const Icon(Icons.open_in_new_rounded, size: 20),
-                label: const Text('View Store Availability on LCBO.com'),
+                label: const Text('View on LCBO.com'),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF5C4A3F),
                   foregroundColor: Colors.white,

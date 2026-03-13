@@ -4,13 +4,16 @@ import random
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from database import PROJECT_ROOT
 from models import WineEntry
 from wine_type import normalize_wine_type
+
+if TYPE_CHECKING:
+  from recommendation.wine_preferences import WinePreferences
 
 
 DB_PATH = PROJECT_ROOT / "data" / "pairings.db"
@@ -333,6 +336,126 @@ def discover_budget(max_price: float = 20.0, limit: int = 3) -> List[DiscoverWin
       break
 
   print(f"[discover] budget max_price={max_price} raw={raw_count} returned={len(results)}")
+  return results
+
+
+def discover_for_you(
+  db: Session,
+  user_id: int,
+  limit: int = 6,
+  wine_preferences: Optional["WinePreferences"] = None,
+) -> List[DiscoverWine]:
+  """
+  Personalized picks using taste profile and/or wine preferences.
+  Preferences affect RANKING only; no wines are filtered/hidden.
+  Returns empty list if no profile and no preferences.
+  """
+  from recommendation.user_profile import build_user_taste_profile
+  from recommendation.scoring import compute_combined_preference_bonus
+  from recommendation.wine_preferences import WinePreferences
+
+  profile = build_user_taste_profile(db, user_id)
+  prefs = wine_preferences
+
+  # Need at least one source for personalization
+  has_profile = profile is not None
+  has_prefs = prefs is not None and not prefs.is_empty()
+  if not has_profile and not has_prefs:
+    print(f"[discover] for-you user_id={user_id} no profile or preferences, returning []")
+    return []
+
+  # Build price range from profile or preferences
+  min_price, max_price = 5.0, 80.0
+  if has_profile and profile.average_preferred_price and profile.average_preferred_price > 0:
+    avg = profile.average_preferred_price
+    min_price = max(5.0, avg * 0.7)
+    max_price = max(min_price + 5, avg * 1.3)
+  elif has_prefs and prefs.default_budget and prefs.default_budget > 0:
+    b = prefs.default_budget
+    min_price = max(5.0, b * 0.6)
+    max_price = max(min_price + 5, b * 1.4)
+
+  con = _connect()
+  try:
+    cur = con.cursor()
+    cur.execute(
+      """
+      SELECT sku, systitle, ec_final_price, ec_thumbnails, lcbo_tastingnotes, style, body
+      FROM master_wines
+      WHERE ec_final_price IS NOT NULL
+        AND ec_final_price BETWEEN ? AND ?
+      ORDER BY RANDOM()
+      LIMIT 150
+      """,
+      (min_price, max_price),
+    )
+    rows = cur.fetchall()
+  except Exception:
+    cur.execute(
+      """
+      SELECT sku, systitle, ec_final_price, ec_thumbnails, lcbo_tastingnotes, style
+      FROM master_wines
+      WHERE ec_final_price IS NOT NULL
+        AND ec_final_price BETWEEN ? AND ?
+      ORDER BY RANDOM()
+      LIMIT 150
+      """,
+      (min_price, max_price),
+    )
+    rows = cur.fetchall()
+  finally:
+    con.close()
+
+  # Minimal doc-like object for scoring
+  class _Doc:
+    def __init__(self, meta: Dict[str, Any]):
+      self.metadata = meta
+
+  scored: List[Tuple[float, sqlite3.Row]] = []
+  seen_skus: set[str] = set()
+  seen_titles: set[str] = set()
+
+  for row in rows:
+    sku = row["sku"]
+    if not sku:
+      continue
+    sku_str = str(sku)
+    if sku_str in seen_skus:
+      continue
+
+    title = (row["systitle"] or "").strip()
+    if not title or title.lower() in seen_titles:
+      continue
+
+    notes = row["lcbo_tastingnotes"] or ""
+    price_val = _parse_price(row["ec_final_price"]) or 0.0
+    style_val = row["style"] if "style" in row.keys() else None
+    thumb_val = row["ec_thumbnails"] if "ec_thumbnails" in row.keys() else None
+    body_val = row["body"] if "body" in row.keys() else None
+    meta = {
+      "systitle": title,
+      "ec_final_price": price_val,
+      "lcbo_tastingnotes": notes,
+      "style": style_val,
+      "ec_thumbnails": thumb_val,
+      "body": body_val,
+      "permanentid": sku_str,
+    }
+    doc = _Doc(meta)
+    # Preferences affect ranking only; NO filtering by wine type
+    bonus = compute_combined_preference_bonus(profile, prefs, doc, price_val)
+    scored.append((bonus, row))
+    seen_skus.add(sku_str)
+    seen_titles.add(title.lower())
+
+  # Sort by bonus descending, take top limit
+  scored.sort(key=lambda x: x[0], reverse=True)
+  results: List[DiscoverWine] = []
+  for _, row in scored[:limit]:
+    wine = _row_to_discover_wine(row, reason="")
+    results.append(wine)
+
+  print(f"[discover] for-you user_id={user_id} returned={len(results)}")
   return results
 
 

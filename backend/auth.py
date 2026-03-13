@@ -16,6 +16,7 @@ from models import User
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def _secret_key() -> str:
@@ -67,5 +68,27 @@ def get_current_user(
     user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise credentials_exception
+    return user
+
+
+def get_optional_current_user(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """
+    Return current user if token is valid; otherwise return None.
+    Does not raise for missing or invalid tokens. Use for optional personalization.
+    """
+    if not token or not token.strip():
+        return None
+    try:
+        payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
+        email: str | None = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+
+    user = db.query(User).filter(User.email == email).first()
     return user
 

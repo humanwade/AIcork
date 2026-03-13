@@ -27,18 +27,22 @@ from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from recommendation.pipeline import recommend_wines
+from recommendation.wine_preferences import WinePreferences
 from wine_type import normalize_wine_type
 from discover import (
     discover_daily,
     discover_collections,
     discover_collection,
     discover_budget,
+    discover_for_you,
     discover_recommended,
 )
 
 from database import init_db, get_db
 from models import User, WineEntry, ScanHistory
+from recommendation.user_profile import build_user_taste_profile
 from schemas import (
+    CellarInsightsOut,
     ChangePasswordRequest,
     CustomWineSaveRequest,
     DeleteAccountRequest,
@@ -55,6 +59,7 @@ from schemas import (
 from auth import (
     create_access_token,
     get_current_user,
+    get_optional_current_user,
     hash_password,
     verify_password,
 )
@@ -74,6 +79,28 @@ INDEX_DIR = PROJECT_ROOT / "data" / "wine_faiss_index"
 PAIRINGS_DB_PATH = os.getenv("PAIRINGS_DB_PATH", str(PROJECT_ROOT / "data" / "pairings.db"))
 
 
+class WinePreferencesIn(BaseModel):
+    """Optional wine preferences from UI. Used for soft ranking only, never filtering."""
+
+    preferred_styles: Optional[List[str]] = Field(
+        default=None,
+        description="Preferred wine styles: Red, White, Rosé, Sparkling",
+    )
+    preferred_body: Optional[str] = Field(
+        default=None,
+        description="Preferred body: Light, Medium, Full",
+    )
+    preferred_flavors: Optional[List[str]] = Field(
+        default=None,
+        description="Preferred flavor profile: Fruity, Crisp, Bold, Dry, Earthy, Smooth",
+    )
+    default_budget: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="User default budget (for ranking bonus, not filtering)",
+    )
+
+
 class RecommendRequest(BaseModel):
     """
     Request model for /recommend.
@@ -85,9 +112,9 @@ class RecommendRequest(BaseModel):
     query: str = Field(..., description="User's natural language description of occasion or preference")
     max_budget: float = Field(50.0, description="Maximum price in CAD (from UI slider, not parsed)")
     top_k: int = Field(3, ge=1, le=10, description="Number of recommendations to return")
-    user_postal: Optional[str] = Field(
-        None,
-        description="User's postal code, used only for building LCBO inventory deep links",
+    wine_preferences: Optional[WinePreferencesIn] = Field(
+        default=None,
+        description="Optional wine preferences for soft ranking bonus (never filters results)",
     )
 
 
@@ -454,6 +481,25 @@ async def list_cellar_entries(
     return rows
 
 
+@app.get("/cellar/insights", response_model=CellarInsightsOut)
+async def get_cellar_insights(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return taste profile summary for the current user's My Cellar insights card."""
+    profile = build_user_taste_profile(db, current_user.id)
+    if profile is None:
+        return CellarInsightsOut(enough_data=False)
+    return CellarInsightsOut(
+        summary_text=profile.summary_text,
+        preferred_wine_types=profile.preferred_wine_types,
+        preferred_flavors=profile.preferred_flavors,
+        preferred_body_styles=profile.preferred_body_styles,
+        average_preferred_price=profile.average_preferred_price,
+        enough_data=True,
+    )
+
+
 @app.patch("/cellar/{entry_id}", response_model=WineEntryOut)
 @app.put("/cellar/{entry_id}", response_model=WineEntryOut)
 async def update_cellar_entry(
@@ -556,17 +602,35 @@ async def delete_cellar_entry(
 # -----------------------------
 
 @app.post("/recommend", response_model=List[WineResult])
-async def recommend(req: RecommendRequest):
-    """Return a list of recommended wines for the given query and budget."""
+async def recommend(
+    req: RecommendRequest,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return a list of recommended wines for the given query and budget.
+    Authenticated users with Tried history receive subtle personalization.
+    Wine preferences (if provided) add a soft ranking bonus; they never filter results."""
     _load_resources()
+
+    wine_prefs: Optional[WinePreferences] = None
+    if req.wine_preferences:
+        wp = req.wine_preferences
+        wine_prefs = WinePreferences(
+            preferred_styles=wp.preferred_styles or [],
+            preferred_body=wp.preferred_body or "",
+            preferred_flavors=wp.preferred_flavors or [],
+            default_budget=wp.default_budget or 0.0,
+        )
 
     wine_payloads, score_debug = recommend_wines(
         query=req.query,
         max_budget=req.max_budget,
         top_k=req.top_k,
-        postal_code=req.user_postal,
         vectorstore=vectorstore,
         llm=llm,
+        db=db if current_user else None,
+        user_id=current_user.id if current_user else None,
+        wine_preferences=wine_prefs,
     )
 
     # Structured logging for debugging / ranking inspection.
@@ -588,10 +652,7 @@ async def recommend(req: RecommendRequest):
 
 
 @app.get("/wine/{sku}/similar", response_model=List[WineResult])
-async def similar_wines(
-    sku: str,
-    user_postal: Optional[str] = None,
-):
+async def similar_wines(sku: str):
     """
     Return 3–5 wines similar to the given SKU, using FAISS semantic search.
 
@@ -727,12 +788,7 @@ async def similar_wines(
         if producer and count >= 2:
             continue
 
-        if user_postal and cand_sku:
-            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={cand_sku}&postalCode={user_postal}"
-        elif cand_sku:
-            inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={cand_sku}"
-        else:
-            inventory_url = None
+        inventory_url = f"https://www.lcbo.com/en/storeinventory?sku={cand_sku}" if cand_sku else None
 
         reason = _build_similarity_reason(
             base_title,
@@ -1350,6 +1406,66 @@ async def discover_collection_wines(slug: str):
                 ),
                 sommelier_note="",
                 similarity_reason=w.reason,
+                wine_type=w.wine_type,
+            )
+        )
+    return results
+
+
+@app.get("/discover/for-you", response_model=List[WineResult])
+async def discover_for_you_picks(
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+    preferred_styles: Optional[str] = None,
+    preferred_body: Optional[str] = None,
+    preferred_flavors: Optional[str] = None,
+    default_budget: Optional[float] = None,
+):
+    """
+    Personalized For You picks using taste profile and/or wine preferences.
+    Preferences affect ranking only; no wines are filtered.
+    Returns empty list if not authenticated and no preferences provided.
+    """
+    if current_user is None:
+        return []
+    wine_prefs: Optional[WinePreferences] = None
+    has_prefs = (
+        preferred_styles
+        or preferred_body
+        or preferred_flavors
+        or (default_budget and default_budget > 0)
+    )
+    if has_prefs:
+        styles = [s.strip() for s in preferred_styles.split(",")] if preferred_styles else []
+        flavors = [f.strip() for f in preferred_flavors.split(",")] if preferred_flavors else []
+        wine_prefs = WinePreferences(
+            preferred_styles=styles,
+            preferred_body=preferred_body or "",
+            preferred_flavors=flavors,
+            default_budget=default_budget or 0.0,
+        )
+    wines = discover_for_you(
+        db=db,
+        user_id=current_user.id,
+        limit=6,
+        wine_preferences=wine_prefs,
+    )
+    results: List[WineResult] = []
+    for w in wines:
+        results.append(
+            WineResult(
+                systitle=w.title,
+                ec_final_price=w.price,
+                lcbo_tastingnotes=w.notes,
+                ec_thumbnails=w.thumb,
+                sku=w.sku,
+                inventory_url=(
+                    f"https://www.lcbo.com/en/storeinventory?sku={w.sku}"
+                    if w.sku
+                    else None
+                ),
+                sommelier_note="",
+                similarity_reason=None,
                 wine_type=w.wine_type,
             )
         )

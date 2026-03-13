@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../wine_recommendation/domain/entities/wine_entity.dart';
-import '../../data/datasources/cellar_api_service.dart';
+import '../../data/datasources/cellar_api_service.dart'
+    show CellarApiService, CellarInsights, RemoteWineEntry;
 import '../models/cellar_wine.dart';
 import '../models/tried_wine_entry.dart';
 import '../models/wine_source.dart';
@@ -13,8 +14,19 @@ final cellarApiProvider = Provider<CellarApiService>((ref) {
   return CellarApiService.create();
 });
 
+final cellarInsightsProvider =
+    FutureProvider<CellarInsights>((ref) async {
+  ref.watch(cellarControllerProvider); // Refetch when cellar changes
+  final api = ref.read(cellarApiProvider);
+  return api.fetchInsights();
+});
+
 final cellarControllerProvider =
     AsyncNotifierProvider<CellarController, CellarState>(CellarController.new);
+
+/// When set, CellarPage will animate to this tab (0=Wants, 1=Tried).
+/// Used when navigating from My Page stat cards.
+final cellarNavigateToTabProvider = StateProvider<int?>((ref) => null);
 
 class CellarController extends AsyncNotifier<CellarState> {
   CellarApiService get _api => ref.read(cellarApiProvider);
@@ -252,12 +264,43 @@ class CellarController extends AsyncNotifier<CellarState> {
     required String customNotes,
     String? purchaseNotes,
     DateTime? tastedAt,
+    double? purchaseAmount,
   }) async {
     final current = state.valueOrNull ?? _empty;
     final remoteId = int.tryParse(want.id);
     debugPrint(
         'CellarController.markWantAsTried: id=${want.id}, remoteId=$remoteId, rating=$rating');
     if (remoteId == null) return;
+
+    final existingTriedBySku = want.sku != null && want.sku!.isNotEmpty
+        ? current.tried.where((t) => t.sku == want.sku).toList()
+        : <TriedWineEntry>[];
+    if (existingTriedBySku.isNotEmpty) {
+      final existing = existingTriedBySku.first;
+      final existingId = int.tryParse(existing.id);
+      if (existingId != null) {
+        final updated = await _api.update(
+          id: existingId,
+          rating: rating,
+          tastingNotes: customNotes.isEmpty ? null : customNotes,
+          isTried: true,
+          imageUrl: existing.imageUrl ?? want.imageUrl,
+          thumbnailUrl: existing.imageUrl ?? want.imageUrl,
+          tastedAt: tastedAt,
+          flavors: flavorTags.isEmpty ? null : flavorTags,
+          aromas: null,
+          bodyStyle: styleTags.isEmpty ? null : styleTags,
+          purchaseNotes: purchaseNotes?.trim().isEmpty ?? true ? null : purchaseNotes,
+          price: purchaseAmount ?? want.price,
+        );
+        final wants = current.wants.where((w) => w.id != want.id).toList();
+        final tried = current.tried
+            .map((t) => t.id == existing.id ? _mapRemoteToTried(updated) : t)
+            .toList();
+        state = AsyncValue.data(current.copyWith(wants: wants, tried: tried));
+        return;
+      }
+    }
 
     final updated = await _api.update(
       id: remoteId,
@@ -271,6 +314,7 @@ class CellarController extends AsyncNotifier<CellarState> {
       aromas: null,
       bodyStyle: styleTags.isEmpty ? null : styleTags,
       purchaseNotes: purchaseNotes?.trim().isEmpty ?? true ? null : purchaseNotes,
+      price: purchaseAmount ?? want.price,
     );
 
     final wants = current.wants.where((w) => w.id != want.id).toList();

@@ -51,6 +51,38 @@ class DiscoverApiService {
         .toList();
   }
 
+  /// For You picks using taste profile and/or wine preferences.
+  /// Preferences affect ranking only; no wines are filtered.
+  Future<List<WineRecommendationModel>> fetchForYouRecommendations({
+    List<String>? preferredStyles,
+    String? preferredBody,
+    List<String>? preferredFlavors,
+    double? defaultBudget,
+  }) async {
+    final params = <String, dynamic>{};
+    if (preferredStyles != null && preferredStyles.isNotEmpty) {
+      params['preferred_styles'] = preferredStyles.join(',');
+    }
+    if (preferredBody != null && preferredBody.isNotEmpty) {
+      params['preferred_body'] = preferredBody;
+    }
+    if (preferredFlavors != null && preferredFlavors.isNotEmpty) {
+      params['preferred_flavors'] = preferredFlavors.join(',');
+    }
+    if (defaultBudget != null && defaultBudget > 0) {
+      params['default_budget'] = defaultBudget;
+    }
+    final response = await _dio.get<List<dynamic>>(
+      '/discover/for-you',
+      queryParameters: params.isNotEmpty ? params : null,
+    );
+    final data = response.data ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(WineRecommendationModel.fromJson)
+        .toList();
+  }
+
   Future<List<WineRecommendationModel>> fetchBudget(
       {double maxPrice = 20}) async {
     final response = await _dio.get<List<dynamic>>(

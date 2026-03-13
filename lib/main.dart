@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_router.dart';
 import 'app/app_theme.dart';
+import 'core/auth/token_storage.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await TokenStorage.hydrate();
   runApp(const ProviderScope(child: WineApp()));
 }
 
@@ -16,7 +18,7 @@ class WineApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title: 'Pairings',
+      title: 'AIcork',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       routerConfig: router,
