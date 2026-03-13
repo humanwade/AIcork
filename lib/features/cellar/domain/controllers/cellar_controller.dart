@@ -174,6 +174,32 @@ class CellarController extends AsyncNotifier<CellarState> {
     state = AsyncValue.data(current.copyWith(tried: tried));
   }
 
+  Future<void> moveTriedToWant(TriedWineEntry entry) async {
+    final current = state.valueOrNull ?? _empty;
+    final remoteId = int.tryParse(entry.id);
+    debugPrint('CellarController.moveTriedToWant: id=${entry.id}, remoteId=$remoteId');
+    if (remoteId == null) return;
+
+    // Server-side source-of-truth: flip is_tried -> false.
+    // We intentionally do not attempt to null out tasting fields here because the
+    // current API helper only sends non-null fields (PATCH semantics).
+    final updated = await _api.update(
+      id: remoteId,
+      isTried: false,
+    );
+
+    final tried = current.tried.where((e) => e.id != entry.id).toList();
+
+    // Insert as a normal Want item (same mapping/shape used everywhere else).
+    final want = _mapRemoteToWant(updated);
+    final wants = [
+      want,
+      ...current.wants.where((w) => w.id != want.id),
+    ];
+
+    state = AsyncValue.data(current.copyWith(wants: wants, tried: tried));
+  }
+
   Future<void> updateTried({
     required TriedWineEntry original,
     required double rating,

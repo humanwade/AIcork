@@ -43,20 +43,59 @@ class CellarWineDetailScreen extends ConsumerWidget {
         ),
         actions: [
           if (isWant)
-            IconButton(
-              tooltip: 'Mark as Tried',
-              onPressed: () => showMarkAsTriedSheet(context, ref, want: wine),
-              icon: const Icon(Icons.check_circle_outline_rounded),
+            PopupMenuButton<_WantDetailAction>(
+              tooltip: 'Actions',
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _WantDetailAction.markTried,
+                  child: Text('Mark as Tried'),
+                ),
+                PopupMenuItem(
+                  value: _WantDetailAction.delete,
+                  child: Text('Delete'),
+                ),
+              ],
+              onSelected: (action) async {
+                final controller =
+                    ref.read(cellarControllerProvider.notifier);
+                switch (action) {
+                  case _WantDetailAction.markTried:
+                    final saved =
+                        await showMarkAsTriedSheet(context, ref, want: wine);
+                    if (saved == true && context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                    return;
+                  case _WantDetailAction.delete:
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete entry?'),
+                        content: const Text(
+                          'This will remove this wine from your Wants.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () =>
+                                Navigator.of(context).pop(true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed != true) return;
+                    await controller.removeWant(wine.id);
+                    if (context.mounted) Navigator.of(context).pop();
+                    return;
+                }
+              },
+              icon: const Icon(Icons.more_vert_rounded),
             ),
-          IconButton(
-            tooltip: 'Remove',
-            onPressed: () async {
-              final controller = ref.read(cellarControllerProvider.notifier);
-              await controller.removeWant(wine.id);
-              if (context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.close_rounded),
-          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -152,21 +191,7 @@ class CellarWineDetailScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 22),
-            if (isWant)
-              FilledButton.icon(
-                onPressed: () => showMarkAsTriedSheet(context, ref, want: wine),
-                icon: const Icon(Icons.check_rounded, size: 20),
-                label: const Text('Mark as Tried'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF5C4A3F),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-              ),
-            if (isWant) const SizedBox(height: 12),
+            // Keep only the LCBO availability button for Wants.
             if (hasInventory)
               FilledButton.icon(
                 onPressed: () => _openInventory(context),
@@ -186,5 +211,10 @@ class CellarWineDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+enum _WantDetailAction {
+  markTried,
+  delete,
 }
 

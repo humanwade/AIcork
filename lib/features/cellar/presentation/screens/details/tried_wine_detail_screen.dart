@@ -34,20 +34,59 @@ class TriedWineDetailScreen extends ConsumerWidget {
         titleSpacing: 24,
         title: const Text('Tasting'),
         actions: [
-          IconButton(
-            tooltip: 'Edit',
-            onPressed: () {
-              context.push('/cellar/edit-tried', extra: entry);
+          PopupMenuButton<_TriedDetailAction>(
+            tooltip: 'Actions',
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _TriedDetailAction.edit,
+                child: Text('Edit tasting'),
+              ),
+              PopupMenuItem(
+                value: _TriedDetailAction.moveToWants,
+                child: Text('Move to Wants'),
+              ),
+              PopupMenuItem(
+                value: _TriedDetailAction.delete,
+                child: Text('Delete entry'),
+              ),
+            ],
+            onSelected: (action) async {
+              final controller = ref.read(cellarControllerProvider.notifier);
+              switch (action) {
+                case _TriedDetailAction.edit:
+                  context.push('/cellar/edit-tried', extra: effective);
+                  return;
+                case _TriedDetailAction.moveToWants:
+                  await controller.moveTriedToWant(effective);
+                  if (context.mounted) Navigator.of(context).pop();
+                  return;
+                case _TriedDetailAction.delete:
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete entry?'),
+                      content: const Text(
+                        'This will permanently remove this tasting from your cellar.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) return;
+                  await controller.removeTried(effective.id);
+                  if (context.mounted) Navigator.of(context).pop();
+                  return;
+              }
             },
-            icon: const Icon(Icons.edit_rounded),
-          ),
-          IconButton(
-            tooltip: 'Remove',
-            onPressed: () async {
-              await ref.read(cellarControllerProvider.notifier).removeTried(entry.id);
-              if (context.mounted) Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(Icons.more_vert_rounded),
           ),
           const SizedBox(width: 8),
         ],
@@ -162,6 +201,12 @@ class TriedWineDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+enum _TriedDetailAction {
+  edit,
+  moveToWants,
+  delete,
 }
 
 class _TagChip extends StatelessWidget {

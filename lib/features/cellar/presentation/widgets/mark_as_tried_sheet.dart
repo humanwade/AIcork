@@ -7,13 +7,13 @@ import '../../domain/models/cellar_wine.dart';
 import 'chips/multi_select_chips.dart';
 import 'rating/star_rating_selector.dart';
 
-Future<void> showMarkAsTriedSheet(
+Future<bool?> showMarkAsTriedSheet(
   BuildContext context,
   WidgetRef ref, {
   required CellarWine want,
-}) async {
+}) {
   final parentContext = context;
-  await showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -131,7 +131,7 @@ class _MarkAsTriedSheetContentState extends State<_MarkAsTriedSheetContent> {
       debugPrint('Tasting save success');
       if (!mounted) return;
       debugPrint('Closing Mark as Tried page');
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         debugPrint('Refreshing cellar providers after save');
         widget.ref.invalidate(cellarControllerProvider);

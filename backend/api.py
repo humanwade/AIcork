@@ -28,6 +28,13 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from recommendation.pipeline import recommend_wines
 from wine_type import normalize_wine_type
+from discover import (
+    discover_daily,
+    discover_collections,
+    discover_collection,
+    discover_budget,
+    discover_recommended,
+)
 
 from database import init_db, get_db
 from models import User, WineEntry, ScanHistory
@@ -473,6 +480,50 @@ async def update_cellar_entry(
     if "body_style" in data:
         entry.body_style_json = json.dumps(data["body_style"]) if data["body_style"] else None
         del data["body_style"]
+    # If an entry is being reverted back to a "Want" (is_tried -> False),
+    # clear all user-specific tasting fields and, when possible, restore
+    # the base product metadata from master_wines so the Wants view shows
+    # a normal saved wine (not a partial Tried record).
+    if "is_tried" in data and data["is_tried"] is False:
+        entry.rating = None
+        entry.tasted_at = None
+        entry.flavors_json = None
+        entry.aromas_json = None
+        entry.body_style_json = None
+        entry.purchase_notes = None
+
+        # If we have a SKU, try to restore base fields from master_wines.
+        sku = entry.sku
+        if sku:
+            base = _get_master_wine_by_sku(sku)
+            if base:
+                title = str(base.get("systitle") or "").strip()
+                notes = str(base.get("lcbo_tastingnotes") or "").strip()
+                thumb = base.get("ec_thumbnails")
+                raw_price = base.get("ec_final_price")
+                try:
+                    price_val = float(raw_price) if raw_price is not None else None
+                except (TypeError, ValueError):
+                    price_val = None
+
+                entry.wine_name = title or entry.wine_name
+                entry.tasting_notes = notes or entry.tasting_notes
+                entry.price = price_val if price_val is not None else entry.price
+                if thumb:
+                    entry.thumbnail_url = thumb
+                    # Prefer thumbnail as image if image_url is missing.
+                    if not entry.image_url:
+                        entry.image_url = thumb
+
+                # Normalize wine type from base data so Wants cards show
+                # the correct category.
+                normalized_type = normalize_wine_type(
+                    raw_style=base.get("style"),
+                    title=title,
+                    notes=notes,
+                )
+                if normalized_type:
+                    entry.wine_type = normalized_type
     for k, v in data.items():
         if hasattr(entry, k):
             setattr(entry, k, v)
@@ -1243,3 +1294,116 @@ async def delete_scan_history(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# -----------------------------
+# Discover
+# -----------------------------
+
+
+@app.get("/discover/daily", response_model=List[WineResult])
+async def discover_daily_picks():
+    wines = discover_daily(limit=3)
+    results: List[WineResult] = []
+    for w in wines:
+        results.append(
+            WineResult(
+                systitle=w.title,
+                ec_final_price=w.price,
+                lcbo_tastingnotes=w.notes,
+                ec_thumbnails=w.thumb,
+                sku=w.sku,
+                inventory_url=(
+                    f"https://www.lcbo.com/en/storeinventory?sku={w.sku}"
+                    if w.sku
+                    else None
+                ),
+                sommelier_note="",
+                similarity_reason=w.reason,
+                wine_type=w.wine_type,
+            )
+        )
+    return results
+
+
+@app.get("/discover/collections")
+async def discover_collections_list():
+    return discover_collections()
+
+
+@app.get("/discover/collection/{slug}", response_model=List[WineResult])
+async def discover_collection_wines(slug: str):
+    wines = discover_collection(slug, limit=10)
+    results: List[WineResult] = []
+    for w in wines:
+        results.append(
+            WineResult(
+                systitle=w.title,
+                ec_final_price=w.price,
+                lcbo_tastingnotes=w.notes,
+                ec_thumbnails=w.thumb,
+                sku=w.sku,
+                inventory_url=(
+                    f"https://www.lcbo.com/en/storeinventory?sku={w.sku}"
+                    if w.sku
+                    else None
+                ),
+                sommelier_note="",
+                similarity_reason=w.reason,
+                wine_type=w.wine_type,
+            )
+        )
+    return results
+
+
+@app.get("/discover/recommended", response_model=List[WineResult])
+async def discover_recommended_for_user(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    wines = discover_recommended(db=db, user_id=current_user.id, limit=3)
+    results: List[WineResult] = []
+    for w in wines:
+        results.append(
+            WineResult(
+                systitle=w.title,
+                ec_final_price=w.price,
+                lcbo_tastingnotes=w.notes,
+                ec_thumbnails=w.thumb,
+                sku=w.sku,
+                inventory_url=(
+                    f"https://www.lcbo.com/en/storeinventory?sku={w.sku}"
+                    if w.sku
+                    else None
+                ),
+                sommelier_note="",
+                similarity_reason=w.reason,
+                wine_type=w.wine_type,
+            )
+        )
+    return results
+
+
+@app.get("/discover/budget", response_model=List[WineResult])
+async def discover_budget_picks(max_price: float = 20.0):
+    wines = discover_budget(max_price=max_price, limit=3)
+    results: List[WineResult] = []
+    for w in wines:
+        results.append(
+            WineResult(
+                systitle=w.title,
+                ec_final_price=w.price,
+                lcbo_tastingnotes=w.notes,
+                ec_thumbnails=w.thumb,
+                sku=w.sku,
+                inventory_url=(
+                    f"https://www.lcbo.com/en/storeinventory?sku={w.sku}"
+                    if w.sku
+                    else None
+                ),
+                sommelier_note="",
+                similarity_reason=w.reason,
+                wine_type=w.wine_type,
+            )
+        )
+    return results

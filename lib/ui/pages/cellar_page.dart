@@ -330,36 +330,7 @@ class _WantsTab extends ConsumerWidget {
                     final w = entries[index];
                     return _CellarWineCard(
                       wine: w,
-                      trailing: PopupMenuButton<_WantAction>(
-                        tooltip: 'Actions',
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: _WantAction.markTried,
-                            child: Text('Mark as Tried'),
-                          ),
-                          PopupMenuItem(
-                            value: _WantAction.remove,
-                            child: Text('Remove'),
-                          ),
-                        ],
-                        onSelected: (a) {
-                          if (a == _WantAction.remove) {
-                            debugPrint(
-                                'CellarPage: remove from Wants id=${w.id}');
-                            ref
-                                .read(cellarControllerProvider.notifier)
-                                .removeWant(w.id);
-                          } else {
-                            debugPrint(
-                                'CellarPage: Mark as Tried selected for id=${w.id}');
-                            onMarkAsTried(w);
-                          }
-                        },
-                        icon: Icon(
-                          Icons.more_horiz_rounded,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
+                      trailing: const SizedBox.shrink(),
                       onTap: () =>
                           context.push('/cellar/want-detail', extra: w),
                     );
@@ -370,8 +341,7 @@ class _WantsTab extends ConsumerWidget {
     );
   }
 }
-
-enum _WantAction { markTried, remove }
+ 
 
 class _TriedTab extends ConsumerWidget {
   const _TriedTab({
@@ -526,16 +496,6 @@ class _TriedTab extends ConsumerWidget {
                                       ),
                                     ],
                                   ],
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Remove',
-                                onPressed: () => ref
-                                    .read(cellarControllerProvider.notifier)
-                                    .removeTried(t.id),
-                                icon: Icon(
-                                  Icons.close_rounded,
-                                  color: Colors.grey.shade600,
                                 ),
                               ),
                             ],
