@@ -82,7 +82,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         onTap: () => navigationShell.goBranch(0),
                       ),
                       _NavItem(
-                        icon: Icons.auto_awesome_rounded,
+                        icon: Icons.search_rounded,
                         label: 'Discover',
                         isSelected:
                             state.matchedLocation.startsWith('/discover'),
