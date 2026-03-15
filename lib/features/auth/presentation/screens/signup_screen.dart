@@ -163,7 +163,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Create your AIcork account',
+                  'Create your Corkey account',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),

@@ -84,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Welcome back to AIcork',
+                  'Welcome back to Corkey',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),

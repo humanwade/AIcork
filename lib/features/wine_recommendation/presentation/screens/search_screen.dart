@@ -128,7 +128,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AIcork',
+                  'Corkey',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 2),
