@@ -52,7 +52,7 @@ class AuthRepository {
           'first_name': firstName,
           'last_name': lastName,
           'email': email,
-          'password': password,
+          if (password.trim().isNotEmpty) 'password': password,
           'phone_number': phoneNumber,
         },
       );

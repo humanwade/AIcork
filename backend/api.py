@@ -46,6 +46,7 @@ from schemas import (
     ChangePasswordRequest,
     CustomWineSaveRequest,
     DeleteAccountRequest,
+    SendVerificationCodeRequest,
     SignupRequest,
     LoginResponse,
     UserPublic,
@@ -214,12 +215,16 @@ def _generate_verification_code() -> str:
 
 
 @app.post("/auth/send-verification-code")
-async def send_verification_code(payload: SignupRequest):
+async def send_verification_code(payload: SendVerificationCodeRequest, db: Session = Depends(get_db)):
     """
     Generate a 6-digit verification code for the given email.
     Sends the code via SMTP (see backend/email_utils.py).
     The code is also printed to backend logs for debugging.
     """
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
     code = _generate_verification_code()
     expires_at = datetime.utcnow() + timedelta(minutes=5)
     _email_verification_store[payload.email] = (code, expires_at, False)

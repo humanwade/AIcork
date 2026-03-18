@@ -23,6 +23,21 @@ class SignupRequest(BaseModel):
     phone_number: Optional[str] = Field(default=None, max_length=40)
 
 
+class SendVerificationCodeRequest(BaseModel):
+    """
+    Payload for /auth/send-verification-code.
+
+    Password is intentionally optional because email verification happens
+    before the user enters their password in the signup flow.
+    """
+
+    first_name: str = Field(min_length=1, max_length=120)
+    last_name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    password: Optional[str] = None
+    phone_number: Optional[str] = Field(default=None, max_length=40)
+
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
