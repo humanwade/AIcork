@@ -12,6 +12,7 @@ import '../providers/auth_providers.dart';
 import 'login_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_of_service_screen.dart';
+import 'about_corkey_screen.dart';
 import 'wine_preferences_screen.dart';
 
 class MyProfileScreen extends ConsumerStatefulWidget {
@@ -87,14 +88,27 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   }
 
   Future<void> _sendFeedback() async {
-    final version = '1.0.0';
-    final device = '${Platform.operatingSystem}';
-    final body = 'App version: $version\nDevice: $device\n\n';
+    const version = '1.0.0';
+    final device = Platform.operatingSystem;
+    final osVersion = Platform.operatingSystemVersion;
+    final body = [
+      'App version:',
+      version,
+      '',
+      'Device:',
+      device,
+      '',
+      'OS version:',
+      osVersion,
+      '',
+      'Feedback:',
+      '',
+    ].join('\n');
     final uri = Uri(
       scheme: 'mailto',
-      path: 'feedback@example.com',
+      path: 'corkeysupport@gmail.com',
       query: _encodeQuery({
-        'subject': 'Wine App Feedback',
+        'subject': 'Corkey App Feedback',
         'body': body,
       }),
     );
@@ -190,6 +204,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                     icon: Icons.description_outlined,
                     label: 'Terms of service',
                     onTap: () => context.push(TermsOfServiceScreen.routePath),
+                  ),
+                  _SettingsRow(
+                    icon: Icons.info_outline_rounded,
+                    label: 'About Corkey',
+                    onTap: () => context.push(AboutCorkeyScreen.routePath),
                   ),
                 ],
               ),
@@ -387,21 +406,13 @@ class _StatTile extends StatelessWidget {
 }
 
 class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({this.children, this.child});
+  const _SettingsCard({required this.children});
 
-  final List<Widget>? children;
-  final Widget? child;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    if (child != null) {
-      return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        elevation: 1,
-        child: child,
-      );
-    }
-    final list = children!;
+    final list = children;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       elevation: 1,
@@ -423,26 +434,22 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.destructive = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = destructive ? Colors.red.shade700 : Colors.grey.shade800;
 
     return ListTile(
-      leading: Icon(icon, size: 22, color: destructive ? Colors.red.shade600 : Colors.grey.shade600),
+      leading: Icon(icon, size: 22, color: Colors.grey.shade600),
       title: Text(
         label,
         style: theme.textTheme.bodyMedium?.copyWith(
-          color: color,
-          fontWeight: destructive ? FontWeight.w500 : null,
+          color: Colors.grey.shade800,
         ),
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade500),

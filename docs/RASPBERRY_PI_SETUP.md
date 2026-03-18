@@ -71,7 +71,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 MAIL_USERNAME=...
 MAIL_PASSWORD=...
-MAIL_FROM=AIcork <...>
+MAIL_FROM=Corkey <...>
 
 # DB를 다른 위치에 두었다면 예:
 # PAIRINGS_DB_PATH=/home/pi/wine_data/pairings.db

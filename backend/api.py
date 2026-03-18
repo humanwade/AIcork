@@ -217,12 +217,20 @@ def _generate_verification_code() -> str:
 async def send_verification_code(payload: SignupRequest):
     """
     Generate a 6-digit verification code for the given email.
-    In development, the code is printed to the backend logs.
+    Sends the code via SMTP (see backend/email_utils.py).
+    The code is also printed to backend logs for debugging.
     """
     code = _generate_verification_code()
     expires_at = datetime.utcnow() + timedelta(minutes=5)
     _email_verification_store[payload.email] = (code, expires_at, False)
     print(f"[auth] Verification code for {payload.email}: {code} (expires at {expires_at.isoformat()}Z)")
+    try:
+        # Send synchronously so failures surface immediately to the client and logs.
+        send_verification_email(payload.email, code)
+        print(f"[auth] Verification email sent to {payload.email}")
+    except Exception as e:
+        print(f"[auth] Failed to send verification email to {payload.email}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send verification email")
     return {"ok": True}
 
 

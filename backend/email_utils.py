@@ -27,11 +27,11 @@ def send_verification_email(to_email: str, code: str) -> None:
         )
 
     msg = EmailMessage()
-    msg["Subject"] = "AIcork Email Verification Code"
+    msg["Subject"] = "Corkey Email Verification Code"
     msg["From"] = mail_from
     msg["To"] = to_email
     msg.set_content(
-        f"Your AIcork verification code is: {code}\n\n"
+        f"Your Corkey verification code is: {code}\n\n"
         "This code will expire in a few minutes. "
         "If you did not request this, you can ignore this email."
     )

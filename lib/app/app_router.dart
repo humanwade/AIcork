@@ -7,6 +7,7 @@ import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/signup_screen.dart';
 import '../features/auth/presentation/screens/change_password_screen.dart';
 import '../features/auth/presentation/screens/edit_profile_screen.dart';
+import '../features/auth/presentation/screens/about_corkey_screen.dart';
 import '../features/auth/presentation/screens/privacy_policy_screen.dart';
 import '../features/auth/presentation/screens/terms_of_service_screen.dart';
 import '../features/auth/presentation/screens/wine_preferences_screen.dart';
@@ -296,6 +297,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: 'terms',
                     pageBuilder: (context, state) => const NoTransitionPage(
                       child: TermsOfServiceScreen(),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'about',
+                    pageBuilder: (context, state) => const NoTransitionPage(
+                      child: AboutCorkeyScreen(),
                     ),
                   ),
                 ],
