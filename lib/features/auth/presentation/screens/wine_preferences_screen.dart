@@ -59,11 +59,16 @@ class WinePreferencesNotifier extends StateNotifier<WinePreferences> {
 
   final String _userId;
 
+  bool get _isActive => mounted;
+
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!_isActive) return;
     await prefs.remove('wine_pref_postal_code');
+    if (!_isActive) return;
 
     if (_userId.isEmpty) {
+      if (!_isActive) return;
       state = state.copyWith(isLoaded: true);
       return;
     }
@@ -75,6 +80,7 @@ class WinePreferencesNotifier extends StateNotifier<WinePreferences> {
 
     final styles = prefs.getStringList(stylesKey) ?? [];
     final flavors = prefs.getStringList(flavorsKey) ?? [];
+    if (!_isActive) return;
     state = state.copyWith(
       preferredStyles: styles.toSet(),
       preferredBody: prefs.getString(bodyKey) ?? '',
@@ -88,36 +94,47 @@ class WinePreferencesNotifier extends StateNotifier<WinePreferences> {
 
   Future<void> _removeLegacyGlobalKeys(SharedPreferences prefs) async {
     await prefs.remove(_kLegacyStyles);
+    if (!_isActive) return;
     await prefs.remove(_kLegacyBody);
+    if (!_isActive) return;
     await prefs.remove(_kLegacyFlavors);
+    if (!_isActive) return;
     await prefs.remove(_kLegacyBudget);
   }
 
   Future<void> setStyles(Set<String> styles) async {
+    if (!_isActive) return;
     state = state.copyWith(preferredStyles: styles);
     if (_userId.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
+    if (!_isActive) return;
     await prefs.setStringList(_key('styles', _userId), styles.toList());
   }
 
   Future<void> setBody(String body) async {
+    if (!_isActive) return;
     state = state.copyWith(preferredBody: body);
     if (_userId.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
+    if (!_isActive) return;
     await prefs.setString(_key('body', _userId), body);
   }
 
   Future<void> setFlavors(Set<String> flavors) async {
+    if (!_isActive) return;
     state = state.copyWith(preferredFlavors: flavors);
     if (_userId.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
+    if (!_isActive) return;
     await prefs.setStringList(_key('flavors', _userId), flavors.toList());
   }
 
   Future<void> setBudget(double budget) async {
+    if (!_isActive) return;
     state = state.copyWith(defaultBudget: budget);
     if (_userId.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
+    if (!_isActive) return;
     await prefs.setDouble(_key('budget', _userId), budget);
   }
 }

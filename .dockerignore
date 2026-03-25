@@ -1,0 +1,14 @@
+.git
+.idea
+.dart_tool
+build
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.venv
+venv
+node_modules
+android/.gradle
+ios/Pods
+

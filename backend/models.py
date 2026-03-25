@@ -4,10 +4,12 @@ import json
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -134,4 +136,55 @@ class ScanHistory(Base):
     sku: Mapped[str | None] = mapped_column(String(80), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     scanned_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class MasterWine(Base):
+    """
+    LCBO master catalog row. Raw LCBO fields live in record_json; frequently
+    queried columns are denormalized for indexes and simple SQL filters.
+    """
+
+    __tablename__ = "master_wines"
+    __table_args__ = (
+        Index("ix_master_wines_price_numeric", "price_numeric"),
+        Index("ix_master_wines_systitle", "systitle"),
+    )
+
+    sku: Mapped[str] = mapped_column(String(120), primary_key=True)
+    record_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    systitle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ec_final_price: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ec_thumbnails: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lcbo_tastingnotes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_numeric: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    winery: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vintage: Mapped[str | None] = mapped_column(Text, nullable=True)
+    country: Mapped[str | None] = mapped_column(Text, nullable=True)
+    region: Mapped[str | None] = mapped_column(Text, nullable=True)
+    subregion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    appellation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    varietals_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    style: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    acidity: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tannin: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sweetness: Mapped[str | None] = mapped_column(Text, nullable=True)
+    oak: Mapped[str | None] = mapped_column(Text, nullable=True)
+    alcohol_level: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fruit_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    savory_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    floral_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    spice_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    earth_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    food_pairing_tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    currency: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lcbo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inventory_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quality_confidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_updated_at: Mapped[str | None] = mapped_column(Text, nullable=True)
 

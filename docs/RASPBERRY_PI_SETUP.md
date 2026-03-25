@@ -60,7 +60,7 @@ pip install -r backend/requirements.txt
 - **그대로 두거나 확인할 것**
   - `GOOGLE_API_KEY`
   - `SMTP_HOST`, `SMTP_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`
-  - (선택) `PAIRINGS_DB_PATH` — DB를 다른 경로에 두었다면 절대 경로로 지정.
+  - `APP_DATABASE_URL` — PostgreSQL(또는 로컬 개발 시 SQLite) 애플리케이션 DB.
 
 예시 (DB 경로만 바꾸는 경우):
 
@@ -73,8 +73,8 @@ MAIL_USERNAME=...
 MAIL_PASSWORD=...
 MAIL_FROM=Corkey <...>
 
-# DB를 다른 위치에 두었다면 예:
-# PAIRINGS_DB_PATH=/home/pi/wine_data/pairings.db
+# 예: PostgreSQL
+# APP_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/corkey
 ```
 
 ### 2.3 서버 실행 (반드시 0.0.0.0)

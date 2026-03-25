@@ -5,7 +5,6 @@ import random
 import re
 import string
 import os
-import sqlite3
 import sys
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -19,6 +18,7 @@ from fastapi import FastAPI, Depends, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -38,8 +38,9 @@ from discover import (
     discover_recommended,
 )
 
+from catalog_utils import master_wine_legacy_dict
 from database import init_db, get_db
-from models import User, WineEntry, ScanHistory
+from models import MasterWine, ScanHistory, User, UserContributedWine, WineEntry
 from recommendation.user_profile import build_user_taste_profile
 from schemas import (
     CellarInsightsOut,
@@ -65,7 +66,6 @@ from auth import (
     verify_password,
 )
 from email_utils import send_verification_email
-from models import UserContributedWine
 
 load_dotenv()
 
@@ -77,7 +77,6 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
 INDEX_DIR = PROJECT_ROOT / "data" / "wine_faiss_index"
-PAIRINGS_DB_PATH = os.getenv("PAIRINGS_DB_PATH", str(PROJECT_ROOT / "data" / "pairings.db"))
 
 
 class WinePreferencesIn(BaseModel):
@@ -174,25 +173,16 @@ def _load_resources():
     print("[recommend] Resource loading complete.")
 
 
-def _get_master_wine_by_sku(sku: str) -> Optional[dict]:
-    """Lookup master wine details by SKU from pairings.db master_wines."""
+def _get_master_wine_by_sku(db: Session, sku: str) -> Optional[dict]:
+    """Lookup master wine details by SKU from master_wines (application DB)."""
     if not sku:
         return None
     try:
-        con = sqlite3.connect(PAIRINGS_DB_PATH)
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute("SELECT * FROM master_wines WHERE sku = ? LIMIT 1", (str(sku),))
-        row = cur.fetchone()
-        return dict(row) if row else None
+        mw = db.query(MasterWine).filter(MasterWine.sku == str(sku).strip()).first()
+        return master_wine_legacy_dict(mw) if mw else None
     except Exception as e:
         print(f"[scan] master_wines lookup failed: {e}")
         return None
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
 
 
 @app.on_event("startup")
@@ -554,7 +544,7 @@ async def update_cellar_entry(
         # If we have a SKU, try to restore base fields from master_wines.
         sku = entry.sku
         if sku:
-            base = _get_master_wine_by_sku(sku)
+            base = _get_master_wine_by_sku(db, sku)
             if base:
                 title = str(base.get("systitle") or "").strip()
                 notes = str(base.get("lcbo_tastingnotes") or "").strip()
@@ -665,7 +655,7 @@ async def recommend(
 
 
 @app.get("/wine/{sku}/similar", response_model=List[WineResult])
-async def similar_wines(sku: str):
+async def similar_wines(sku: str, db: Session = Depends(get_db)):
     """
     Return 3–5 wines similar to the given SKU, using FAISS semantic search.
 
@@ -676,7 +666,7 @@ async def similar_wines(sku: str):
     """
     _load_resources()
 
-    base_row = _get_master_wine_by_sku(sku)
+    base_row = _get_master_wine_by_sku(db, sku)
     if not base_row:
         return []
 
@@ -964,6 +954,7 @@ def _sequence_ratio(a: str, b: str) -> float:
 
 
 def _fetch_master_candidates(
+    db: Session,
     winery_norm: str,
     wine_name_norm: str,
     limit: int = 250,
@@ -975,52 +966,22 @@ def _fetch_master_candidates(
     - If winery is absent, use wine_name tokens to narrow the set.
     """
     try:
-        con = sqlite3.connect(PAIRINGS_DB_PATH)
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-
-        where_clauses: List[str] = []
-        params: List[str] = []
+        q = db.query(MasterWine).filter(MasterWine.systitle.isnot(None))
 
         if winery_norm:
             wtoks = [t for t in _tokenize(winery_norm) if t not in _GENERIC_VARIETAL_TOKENS and len(t) >= 3]
-            # Require at least one meaningful winery token in the title
             if wtoks:
-                like_parts = []
-                for t in wtoks[:4]:
-                    like_parts.append("LOWER(systitle) LIKE ?")
-                    params.append(f"%{t}%")
-                where_clauses.append("(" + " OR ".join(like_parts) + ")")
-            else:
-                # If winery is too generic, do not filter by it (avoid false positives)
-                pass
+                q = q.filter(or_(*[MasterWine.systitle.ilike(f"%{t}%") for t in wtoks[:4]]))
         elif wine_name_norm:
             ntoks = [t for t in _tokenize(wine_name_norm) if len(t) >= 3]
             if ntoks:
-                like_parts = []
-                for t in ntoks[:4]:
-                    like_parts.append("LOWER(systitle) LIKE ?")
-                    params.append(f"%{t}%")
-                where_clauses.append("(" + " OR ".join(like_parts) + ")")
+                q = q.filter(or_(*[MasterWine.systitle.ilike(f"%{t}%") for t in ntoks[:4]]))
 
-        where_sql = ""
-        if where_clauses:
-            where_sql = "WHERE " + " AND ".join(where_clauses)
-
-        cur.execute(
-            f"SELECT sku, systitle, ec_final_price, ec_thumbnails, lcbo_tastingnotes FROM master_wines {where_sql} LIMIT ?",
-            (*params, int(limit)),
-        )
-        rows = cur.fetchall()
-        return [dict(r) for r in rows]
+        rows = q.limit(int(limit)).all()
+        return [master_wine_legacy_dict(r) for r in rows]
     except Exception as e:
         print(f"[scan] master_wines candidate fetch failed: {e}")
         return []
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
 
 
 def _score_candidate(
@@ -1089,6 +1050,7 @@ def _score_candidate(
 
 
 def _match_wine_staged(
+    db: Session,
     wine_name: str,
     winery: str,
     vintage: str,
@@ -1108,7 +1070,7 @@ def _match_wine_staged(
     print(f"[scan] normalized wine_name={wine_name_norm!r}")
     print(f"[scan] normalized vintage={vintage_norm!r}")
 
-    candidates = _fetch_master_candidates(winery_norm, wine_name_norm, limit=250)
+    candidates = _fetch_master_candidates(db, winery_norm, wine_name_norm, limit=250)
 
     # Fallback: if no candidates found but we have a name, use FAISS to propose skus,
     # then validate with the same winery-first scoring.
@@ -1130,7 +1092,7 @@ def _match_wine_staged(
                 if sku in seen:
                     continue
                 seen.add(sku)
-                row = _get_master_wine_by_sku(sku)
+                row = _get_master_wine_by_sku(db, sku)
                 if row:
                     candidates.append(row)
         except Exception as e:
@@ -1226,7 +1188,7 @@ def _scan_wine_label_with_gemini(image_bytes: bytes, mime_type: str) -> dict:
 
 
 @app.post("/scan")
-async def scan_wine_label(file: UploadFile = File(...)):
+async def scan_wine_label(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Accept a wine label image, analyze with Gemini Vision, optionally match to DB."""
     print("[scan] route hit successfully")
     print(f"[scan] image received filename={file.filename!r} content_type={file.content_type!r}")
@@ -1250,7 +1212,7 @@ async def scan_wine_label(file: UploadFile = File(...)):
         print("[scan] No wine identified from label")
         return {"recognized": False}
 
-    master_row, score = _match_wine_staged(wine_name=wine_name, winery=winery, vintage=vintage)
+    master_row, score = _match_wine_staged(db, wine_name=wine_name, winery=winery, vintage=vintage)
     if master_row:
         sku = master_row.get("sku")
         title = master_row.get("systitle") or (wine_name or "")
@@ -1371,8 +1333,8 @@ async def health():
 
 
 @app.get("/discover/daily", response_model=List[WineResult])
-async def discover_daily_picks():
-    wines = discover_daily(limit=3)
+async def discover_daily_picks(db: Session = Depends(get_db)):
+    wines = discover_daily(db, limit=3)
     results: List[WineResult] = []
     for w in wines:
         results.append(
@@ -1401,8 +1363,8 @@ async def discover_collections_list():
 
 
 @app.get("/discover/collection/{slug}", response_model=List[WineResult])
-async def discover_collection_wines(slug: str):
-    wines = discover_collection(slug, limit=10)
+async def discover_collection_wines(slug: str, db: Session = Depends(get_db)):
+    wines = discover_collection(db, slug, limit=10)
     results: List[WineResult] = []
     for w in wines:
         results.append(
@@ -1514,8 +1476,8 @@ async def discover_recommended_for_user(
 
 
 @app.get("/discover/budget", response_model=List[WineResult])
-async def discover_budget_picks(max_price: float = 20.0):
-    wines = discover_budget(max_price=max_price, limit=3)
+async def discover_budget_picks(max_price: float = 20.0, db: Session = Depends(get_db)):
+    wines = discover_budget(db, max_price=max_price, limit=3)
     results: List[WineResult] = []
     for w in wines:
         results.append(

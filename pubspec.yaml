@@ -56,11 +56,12 @@ dependencies:
   shared_preferences: ^2.2.3
 
   # Scan recognition (barcode + OCR)
-  google_mlkit_barcode_scanning: ^0.12.0
-  google_mlkit_text_recognition: ^0.12.0
+  google_mlkit_barcode_scanning: ^0.14.2
+  google_mlkit_text_recognition: ^0.15.1
 
   # Foundation
   cupertino_icons: ^1.0.8
+  google_mlkit_commons: ^0.11.1
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +73,24 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.13.1
+
+flutter_native_splash:
+  color: "#EDE6DC"   
+  image: assets/icon/corkey_icon.png
+
+  android_12:
+    color: "#EDE6DC"
+    image: assets/icon/corkey_icon.png 
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/corkey_icon.png"
+
+  adaptive_icon_background: "#EDE6DC"
+  adaptive_icon_foreground: "assets/icon/corkey_icon_transparency.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,6 +102,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icon/corkey_icon.png
+    - assets/icon/corkey_icon_transparency.png
+    - assets/splash/corkey_splash.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

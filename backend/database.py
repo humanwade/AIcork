@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -8,7 +9,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
-DB_PATH = PROJECT_ROOT / "data" / "pairings.db"
+APP_SQLITE_PATH = PROJECT_ROOT / "data" / "app.db"
 
 
 class Base(DeclarativeBase):
@@ -16,34 +17,38 @@ class Base(DeclarativeBase):
 
 
 def _db_url() -> str:
-    # SQLite file relative to project root
-    return f"sqlite:///{DB_PATH.as_posix()}"
+    # Primary transactional DB URL (users, auth, cellar, scan history, etc.)
+    # Production: set APP_DATABASE_URL (e.g., postgresql+psycopg://...)
+    # Local fallback: SQLite
+    return os.getenv("APP_DATABASE_URL", f"sqlite:///{APP_SQLITE_PATH.as_posix()}")
 
 
-engine = create_engine(
-    _db_url(),
-    connect_args={"check_same_thread": False},  # FastAPI threads
-    pool_pre_ping=True,
-)
+def _is_sqlite_url(url: str) -> bool:
+    return url.startswith("sqlite")
+
+
+_DATABASE_URL = _db_url()
+_engine_kwargs = {"pool_pre_ping": True}
+if _is_sqlite_url(_DATABASE_URL):
+    # SQLite requires check_same_thread=False for FastAPI thread usage.
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+engine = create_engine(_DATABASE_URL, **_engine_kwargs)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db() -> None:
-    # Ensure data directory exists
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Ensure local SQLite parent exists only when SQLite is used.
+    if _is_sqlite_url(_DATABASE_URL):
+        APP_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
     import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-    _migrate_wine_entries_tasting_columns()
-    # Extend master_wines schema for structured recommendation fields (non-destructive).
-    try:
-        from data.migrations import migrate_master_wines_schema
 
-        migrate_master_wines_schema(DB_PATH)
-    except Exception as exc:
-        # Migration failures should not bring the app down; log and continue.
-        print(f"[migrations] master_wines schema migration failed: {exc}")
+    # Legacy SQLite column patching; skip for PostgreSQL.
+    if _is_sqlite_url(_DATABASE_URL):
+        _migrate_wine_entries_tasting_columns()
 
 
 def _migrate_wine_entries_tasting_columns() -> None:

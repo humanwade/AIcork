@@ -1,17 +1,34 @@
+# --- Web Framework & Server ---
 fastapi
 uvicorn[standard]
+python-multipart
 streamlit
+
+# --- Database & Migration ---
+sqlalchemy
+psycopg[binary]
+alembic
+
+# --- AI & LangChain (핵심 패키지) ---
 langchain
+langchain-community
+langchain-core
+langchain-google-genai
 langchain-huggingface
 langchain-ollama
 sentence-transformers
 faiss-cpu
-requests
-python-dotenv
-
-sqlalchemy
-passlib
-python-jose[cryptography]
-python-multipart
 google-generativeai
+
+# --- Security & Validation (에러 해결용) ---
+pydantic[email]
+email-validator
+pydantic-settings
+passlib[bcrypt]
+bcrypt==4.0.1
+python-jose[cryptography]
+
+# --- Utilities ---
+python-dotenv
+requests
 pillow

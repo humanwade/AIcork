@@ -55,3 +55,36 @@ data/pairings.db
 data/pairings.db-shm
 data/pairings.db-wal
 data/wine_faiss_index/
+
+# --- General local/development artifacts ---
+# Python virtual environments
+.venv/
+venv/
+env/
+backend/.venv/
+backend/venv/
+backend/env/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Databases (project now uses PostgreSQL)
+*.db
+*.sqlite3
+
+# Environment files (keep templates like .env.example tracked)
+.env
+**/.env
+
+# IDE/editor/local OS files
+.vscode/
+.idea/
+.DS_Store
+
+# FAISS indexes and large local binaries
+backend/data/wine_faiss_index/
+*.pkl

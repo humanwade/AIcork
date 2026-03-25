@@ -46,57 +46,49 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF2F2116), Color(0xFF5C4A3F)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: FadeTransition(
-          opacity: _fade,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.08),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.18),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.wine_bar_rounded,
-                    color: Colors.white,
-                    size: 44,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Corkey',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    color: Colors.white,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Thoughtful wine recommendations\nfor real-world moments.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.76),
-                  ),
-                ),
-              ],
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF2F2116), Color(0xFF5C4A3F)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
           ),
-        ),
+          Positioned.fill(
+            child: FadeTransition(
+              opacity: _fade,
+              child: Image.asset(
+                'assets/splash/corkey_splash.png',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  debugPrint(
+                    'SplashScreen: failed to load asset: assets/splash/corkey_splash.png ($error)',
+                  );
+                  return Container(
+                    color: Colors.white,
+                    alignment: Alignment.center,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        'SPLASH ASSET LOAD FAILED\\nassets/splash/corkey_splash.png',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFFB00020),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

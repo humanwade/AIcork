@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import json
 import re
-import sqlite3
-from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Optional
 
-from database import DB_PATH
+from sqlalchemy.orm import Session
+
+from catalog_utils import master_wine_legacy_dict
+from database import SessionLocal
+from models import MasterWine
 
 
 def _derive_basic_profile(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -24,12 +25,10 @@ def _derive_basic_profile(row: Dict[str, Any]) -> Dict[str, Any]:
     winery = None
     vintage = None
 
-    # Simple vintage extraction from title (4-digit year).
     m = re.search(r"\b(19|20)\d{2}\b", systitle)
     if m:
         vintage = m.group(0)
 
-    # Naive style detection from title.
     title_lower = systitle.lower()
     style = None
     for key in ["cabernet sauvignon", "pinot noir", "chardonnay", "riesling", "merlot", "malbec"]:
@@ -37,7 +36,6 @@ def _derive_basic_profile(row: Dict[str, Any]) -> Dict[str, Any]:
             style = key
             break
 
-    # Very rough body/acidity/tannin cues from tasting notes.
     notes_lower = notes.lower()
     body = None
     if "full-bodied" in notes_lower or "full bodied" in notes_lower:
@@ -79,67 +77,30 @@ def _derive_basic_profile(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def enrich_master_wines(db_path: Path | None = None, limit: int | None = None) -> None:
+def enrich_master_wines(session: Optional[Session] = None, limit: int | None = None) -> None:
     """
     Backfill structured columns on master_wines from existing LCBO fields.
 
-    - Reads from SQLite only (raw JSON file remains untouched).
-    - Can be re-run safely; writes deterministic derived values.
+    Uses the application database (APP_DATABASE_URL). Safe to re-run.
     """
 
-    path = db_path or DB_PATH
-    if not path.exists():
-        raise SystemExit(f"Database not found: {path}")
-
-    con = sqlite3.connect(str(path))
+    own = session is None
+    db = session or SessionLocal()
     try:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-
-        sql = "SELECT rowid, * FROM master_wines"
+        q = db.query(MasterWine)
         if limit is not None:
-            sql += " LIMIT ?"
-            cur.execute(sql, (int(limit),))
-        else:
-            cur.execute(sql)
-
-        rows = cur.fetchall()
-        update_sql = """
-        UPDATE master_wines
-        SET
-            name = COALESCE(?, name),
-            winery = COALESCE(?, winery),
-            vintage = COALESCE(?, vintage),
-            style = COALESCE(?, style),
-            body = COALESCE(?, body),
-            acidity = COALESCE(?, acidity),
-            tannin = COALESCE(?, tannin),
-            sweetness = COALESCE(?, sweetness)
-        WHERE rowid = ?
-        """
-
-        for r in rows:
-            derived = _derive_basic_profile(dict(r))
-            cur.execute(
-                update_sql,
-                (
-                    derived["name"],
-                    derived["winery"],
-                    derived["vintage"],
-                    derived["style"],
-                    derived["body"],
-                    derived["acidity"],
-                    derived["tannin"],
-                    derived["sweetness"],
-                    r["rowid"],
-                ),
-            )
-
-        con.commit()
+            q = q.limit(int(limit))
+        for mw in q:
+            derived = _derive_basic_profile(master_wine_legacy_dict(mw))
+            for field in ("name", "winery", "vintage", "style", "body", "acidity", "tannin", "sweetness"):
+                v = derived.get(field)
+                if v is not None:
+                    setattr(mw, field, v)
+        db.commit()
     finally:
-        con.close()
+        if own:
+            db.close()
 
 
 if __name__ == "__main__":
     enrich_master_wines()
-

@@ -12,6 +12,7 @@ import '../features/auth/presentation/screens/privacy_policy_screen.dart';
 import '../features/auth/presentation/screens/terms_of_service_screen.dart';
 import '../features/auth/presentation/screens/wine_preferences_screen.dart';
 import '../features/auth/presentation/screens/profile_tab_wrapper.dart';
+import '../features/wine_recommendation/presentation/screens/intro_splash_page.dart';
 import '../features/wine_recommendation/presentation/screens/results_screen.dart';
 import '../features/wine_recommendation/presentation/screens/search_screen.dart';
 import '../features/wine_recommendation/presentation/screens/splash_screen.dart';
@@ -31,7 +32,7 @@ import '../ui/pages/scan_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: SplashScreen.routePath,
+    initialLocation: IntroSplashPage.routePath,
     routes: [
       GoRoute(
         path: LoginScreen.routePath,
@@ -45,6 +46,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: SignupScreen.routeName,
         pageBuilder: (context, state) => const NoTransitionPage(
           child: SignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: IntroSplashPage.routePath,
+        name: IntroSplashPage.routeName,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: IntroSplashPage(),
         ),
       ),
       GoRoute(
