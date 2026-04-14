@@ -2,79 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../cellar/domain/controllers/cellar_controller.dart';
 import '../providers/auth_providers.dart';
-import 'forgot_password_screen.dart';
-import 'signup_screen.dart';
-import 'wine_preferences_screen.dart';
+import 'login_screen.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ResetPasswordScreen extends ConsumerStatefulWidget {
+  const ResetPasswordScreen({
+    super.key,
+    this.initialToken,
+  });
 
-  static const routePath = '/auth/login';
-  static const routeName = 'login';
+  /// Optional token from deep link query `?token=`.
+  final String? initialToken;
+
+  static const routePath = '/auth/reset-password';
+  static const routeName = 'reset-password';
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _tokenCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
   bool _obscure = true;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.initialToken?.trim();
+    if (t != null && t.isNotEmpty) {
+      _tokenCtrl.text = t;
+    }
+  }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _tokenCtrl.dispose();
     _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final authState = ref.read(authProvider);
-    if (authState.isLoading) return;
-
     if (!_formKey.currentState!.validate()) return;
-
-    final email = _emailCtrl.text.trim();
-    final password = _passwordCtrl.text.trim();
-
+    if (_loading) return;
+    setState(() => _loading = true);
     try {
-      await ref.read(authProvider.notifier).login(
-            email: email,
-            password: password,
+      final message = await ref.read(authRepositoryProvider).resetPassword(
+            token: _tokenCtrl.text.trim(),
+            newPassword: _passwordCtrl.text,
           );
       if (!mounted) return;
-      ref.invalidate(cellarControllerProvider);
-      ref.invalidate(winePreferencesProvider);
-      debugPrint('Auth changed, refreshing cellar state after login');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Welcome back!')),
+        SnackBar(content: Text(message)),
       );
-      context.go('/home');
-    } catch (_) {
+      context.go(LoginScreen.routePath);
+    } catch (e) {
       if (!mounted) return;
+      final text = e.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login failed. Please check your credentials.'),
-        ),
+        SnackBar(content: Text(text.isEmpty ? 'Reset failed.' : text)),
       );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 24,
-        title: Text(
-          'Sign in',
-          style: theme.textTheme.titleLarge,
-        ),
+        title: Text('Reset password', style: theme.textTheme.titleLarge),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -85,30 +89,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Welcome back to Corkey',
+                  'New password',
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sign in to sync your cellar and tasting history.',
+                  'Paste the reset code from your email, then choose a new password.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.grey.shade700,
                   ),
                 ),
                 const SizedBox(height: 24),
                 TextFormField(
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _tokenCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'you@example.com',
+                    labelText: 'Reset code',
+                    hintText: 'Token from email',
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
-                      return 'Email is required.';
-                    }
-                    if (!v.contains('@')) {
-                      return 'Please enter a valid email.';
+                      return 'Reset code is required.';
                     }
                     return null;
                   },
@@ -118,12 +118,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _passwordCtrl,
                   obscureText: _obscure,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: 'New password',
                     suffixIcon: IconButton(
                       onPressed: () {
-                        setState(() {
-                          _obscure = !_obscure;
-                        });
+                        setState(() => _obscure = !_obscure);
                       },
                       icon: Icon(
                         _obscure
@@ -142,11 +140,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmCtrl,
+                  obscureText: _obscure,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm new password',
+                  ),
+                  validator: (v) {
+                    if (v != _passwordCtrl.text) {
+                      return 'Passwords do not match.';
+                    }
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: authState.isLoading ? null : _submit,
+                    onPressed: _loading ? null : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF5C4A3F),
                       foregroundColor: Colors.white,
@@ -155,27 +167,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: Text(
-                      authState.isLoading ? 'Signing in...' : 'Sign in',
-                    ),
+                    child: Text(_loading ? 'Saving…' : 'Update password'),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      context.push(ForgotPasswordScreen.routePath);
-                    },
-                    child: const Text('Forgot password?'),
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {
-                    context.push(SignupScreen.routePath);
-                  },
-                  child: const Text("Don't have an account? Sign up"),
+                  onPressed: () => context.go(LoginScreen.routePath),
+                  child: const Text('Back to sign in'),
                 ),
               ],
             ),
@@ -185,4 +183,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
-

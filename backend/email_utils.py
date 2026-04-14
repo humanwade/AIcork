@@ -43,3 +43,16 @@ def send_verification_email(to_email: str, code: str) -> None:
         server.login(username, password)
         server.send_message(msg)
 
+
+def send_password_reset_email(to_email: str, reset_link: str) -> None:
+    """
+    Send a password-reset link. Replace with AWS SES / SMTP when ready.
+
+    For now this only logs; callers should not rely on SMTP being configured.
+    """
+
+    print(
+        f"[email] password_reset to={to_email} "
+        f"reset_link={reset_link}"
+    )
+

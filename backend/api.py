@@ -3,10 +3,11 @@ import difflib
 import json
 import random
 import re
+import secrets
 import string
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from pydantic import EmailStr
 
-from fastapi import FastAPI, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -40,13 +41,17 @@ from discover import (
 
 from catalog_utils import master_wine_legacy_dict
 from database import init_db, get_db
-from models import MasterWine, ScanHistory, User, UserContributedWine, WineEntry
+from models import MasterWine, PasswordResetToken, ScanHistory, User, UserContributedWine, WineEntry
 from recommendation.user_profile import build_user_taste_profile
 from schemas import (
     CellarInsightsOut,
     ChangePasswordRequest,
     CustomWineSaveRequest,
     DeleteAccountRequest,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     SendVerificationCodeRequest,
     SignupRequest,
     LoginResponse,
@@ -65,7 +70,7 @@ from auth import (
     hash_password,
     verify_password,
 )
-from email_utils import send_verification_email
+from email_utils import send_password_reset_email, send_verification_email
 
 load_dotenv()
 
@@ -323,6 +328,64 @@ async def change_password(
     db.commit()
     print(f"[auth] Password updated for user_id={current_user.id} ({current_user.email})")
     return {"message": "Password updated successfully."}
+
+
+# Password reset: registered on a sub-router so OpenAPI/Swagger lists them explicitly.
+auth_password_router = APIRouter(tags=["Authentication"])
+
+
+@auth_password_router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Request a password reset. Response is identical whether or not the email is registered.
+    """
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is not None:
+        db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        db.add(
+            PasswordResetToken(
+                token=token,
+                user_id=user.id,
+                expires_at=expires_at,
+            )
+        )
+        db.commit()
+        base = os.getenv("PASSWORD_RESET_LINK_BASE", "").strip().rstrip("/")
+        if base:
+            reset_link = f"{base}&token={token}" if "?" in base else f"{base}?token={token}"
+        else:
+            reset_link = f"(configure PASSWORD_RESET_LINK_BASE) token={token}"
+        send_password_reset_email(str(payload.email), reset_link)
+    return ForgotPasswordResponse(message="email has been sent to reset your password")
+
+
+@auth_password_router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Consume a reset token and set a new password (hashed)."""
+    now = datetime.now(timezone.utc)
+    raw = payload.token.strip()
+    row = db.query(PasswordResetToken).filter(PasswordResetToken.token == raw).first()
+    if row is None or row.used_at is not None or row.expires_at < now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token.",
+        )
+    user = db.query(User).filter(User.id == row.user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token.",
+        )
+    user.hashed_password = hash_password(payload.new_password)
+    row.used_at = now
+    db.commit()
+    print(f"[auth] Password reset completed for user_id={user.id} ({user.email})")
+    return ResetPasswordResponse(message="Password has been reset successfully.")
+
+
+app.include_router(auth_password_router, prefix="/auth")
 
 
 @app.delete("/auth/me")

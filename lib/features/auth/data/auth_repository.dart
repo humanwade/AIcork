@@ -129,6 +129,57 @@ class AuthRepository {
     await TokenStorage.setToken(null);
   }
 
+  /// Always succeeds with the same user-facing message when the server returns 200.
+  Future<String> forgotPassword({required String email}) async {
+    try {
+      final response = await _dio.post(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
+      final data = response.data;
+      if (data is Map<String, dynamic> && data['message'] != null) {
+        return data['message'] as String;
+      }
+      return '이메일이 발송되었습니다';
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response!.data['detail']?.toString() ?? '')
+          : '';
+      final message = detail.isNotEmpty
+          ? detail
+          : 'Could not send reset email. Please try again.';
+      throw Exception(message);
+    }
+  }
+
+  Future<String> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/reset-password',
+        data: {
+          'token': token,
+          'new_password': newPassword,
+        },
+      );
+      final data = response.data;
+      if (data is Map<String, dynamic> && data['message'] != null) {
+        return data['message'] as String;
+      }
+      return '비밀번호가 변경되었습니다';
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response!.data['detail']?.toString() ?? '')
+          : '';
+      final message = detail.isNotEmpty
+          ? detail
+          : 'Password reset failed. Please try again.';
+      throw Exception(message);
+    }
+  }
+
   Future<String?> loadToken() async {
     await TokenStorage.hydrate();
     return TokenStorage.token;

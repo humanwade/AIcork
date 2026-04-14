@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/wine_recommendation/domain/entities/wine_entity.dart';
+import '../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/reset_password_screen.dart';
 import '../features/auth/presentation/screens/signup_screen.dart';
 import '../features/auth/presentation/screens/change_password_screen.dart';
 import '../features/auth/presentation/screens/edit_profile_screen.dart';
@@ -47,6 +49,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => const NoTransitionPage(
           child: SignupScreen(),
         ),
+      ),
+      GoRoute(
+        path: ForgotPasswordScreen.routePath,
+        name: ForgotPasswordScreen.routeName,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: ForgotPasswordScreen(),
+        ),
+      ),
+      GoRoute(
+        path: ResetPasswordScreen.routePath,
+        name: ResetPasswordScreen.routeName,
+        pageBuilder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return NoTransitionPage(
+            child: ResetPasswordScreen(initialToken: token),
+          );
+        },
       ),
       GoRoute(
         path: IntroSplashPage.routePath,
