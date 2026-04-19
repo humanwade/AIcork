@@ -80,8 +80,8 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-INDEX_DIR = PROJECT_ROOT / "data" / "wine_faiss_index"
+DATA_PATH = BASE_DIR / "data" / "9480_wine_final_master.json"
+INDEX_DIR = BASE_DIR / "data" / "wine_faiss_index"
 
 
 class WinePreferencesIn(BaseModel):

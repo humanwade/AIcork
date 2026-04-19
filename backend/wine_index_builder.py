@@ -8,9 +8,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-DATA_PATH = PROJECT_ROOT / "9480_wine_final_master.json"
-INDEX_DIR = PROJECT_ROOT / "data" / "wine_faiss_index"
+DATA_PATH = BASE_DIR / "data" / "9480_wine_final_master.json"
+INDEX_DIR = BASE_DIR / "data" / "wine_faiss_index"
 
 
 def load_wine_records(path: Path) -> List[Dict]:
