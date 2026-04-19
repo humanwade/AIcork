@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: corkey
       POSTGRES_USER: corkey
-      POSTGRES_PASSWORD: corkey_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -23,21 +23,28 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    env_file:
-      - backend/.env
     container_name: corkey-backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8000:8000"
+    # [변경점 1] 룸렌트 네트워크 환경을 위해 host 모드 추가
+    # ports:
+    #   - "8000:8000"
+    network_mode: "host" 
+    
+    env_file:
+      - .env
+    
     environment:
-      APP_DATABASE_URL: postgresql+psycopg://corkey:corkeypassword!@corkey-db.cp4m0guieqod.us-east-2.rds.amazonaws.com:5432/wine_db
-      SECRET_KEY: wade_corkey_super_secret_key_2026
+      # [변경점 2] AWS RDS 주소 대신 로컬 DB 주소로 변경
+      # APP_DATABASE_URL: postgresql+psycopg://corkey:corkeypassword!@corkey-db.cp4m0guieqod.us-east-2.rds.amazonaws.com:5432/wine_db
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    
     volumes:
       - ./data:/app/data:ro
 
 volumes:
   postgres_data:
-
