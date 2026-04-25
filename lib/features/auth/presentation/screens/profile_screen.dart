@@ -9,7 +9,6 @@ import '../../../cellar/domain/controllers/cellar_controller.dart'
     show cellarControllerProvider, cellarNavigateToTabProvider;
 import '../../../scan/presentation/providers/scan_providers.dart';
 import '../providers/auth_providers.dart';
-import 'login_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_of_service_screen.dart';
 import 'about_corkey_screen.dart';
@@ -61,7 +60,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     ref.invalidate(cellarControllerProvider);
     ref.invalidate(winePreferencesProvider);
     if (!mounted) return;
-    context.go(LoginScreen.routePath);
+    context.go('/profile');
   }
 
   void _openChangePassword() {
@@ -112,12 +111,23 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         'body': body,
       }),
     );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open email app.')),
-      );
+    try {
+      final launched = await launchUrl(uri);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
     }
   }
 
@@ -156,7 +166,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         onRefresh: _loadProfile,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(20, 36, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -325,32 +335,35 @@ class _WineStatsRow extends ConsumerWidget {
     final cellarAsync = ref.watch(cellarControllerProvider);
     final scanCountAsync = ref.watch(scanHistoryCountProvider);
 
-    return Row(
-      children: [
-        Expanded(
-          child: _StatTile(
-            value: cellarAsync.valueOrNull?.tried.length ?? 0,
-            label: 'Tried wines',
-            onTap: onTriedTap,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _StatTile(
+              value: cellarAsync.valueOrNull?.tried.length ?? 0,
+              label: 'Tried wines',
+              onTap: onTriedTap,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatTile(
-            value: cellarAsync.valueOrNull?.wants.length ?? 0,
-            label: 'Saved wines',
-            onTap: onSavedTap,
+          const SizedBox(width: 12),
+          Expanded(
+            child: _StatTile(
+              value: cellarAsync.valueOrNull?.wants.length ?? 0,
+              label: 'Saved wines',
+              onTap: onSavedTap,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatTile(
-            value: scanCountAsync.valueOrNull ?? 0,
-            label: 'Scanned wines',
-            onTap: onScannedTap,
+          const SizedBox(width: 12),
+          Expanded(
+            child: _StatTile(
+              value: scanCountAsync.valueOrNull ?? 0,
+              label: 'Scanned wines',
+              onTap: onScannedTap,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -376,28 +389,32 @@ class _StatTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Column(
-            children: [
-              Text(
-                '$value',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF5C4A3F),
+        child: SizedBox(
+          height: 118,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$value',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF5C4A3F),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.grey.shade700,
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.grey.shade700,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -166,7 +166,7 @@ class _CellarPageState extends ConsumerState<CellarPage>
                 return [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 36, 24, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

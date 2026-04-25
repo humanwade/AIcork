@@ -6,6 +6,7 @@ import '../../domain/entities/wine_entity.dart';
 import '../widgets/wine_card.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../cellar/domain/controllers/cellar_controller.dart';
 
 class ResultsScreen extends ConsumerWidget {
@@ -62,6 +63,16 @@ class ResultsScreen extends ConsumerWidget {
                         onPressed: () async {
                           debugPrint(
                               'ResultsScreen: heart tapped for sku=${wine.sku}');
+                          final auth = ref.read(authProvider);
+                          if (!auth.isAuthenticated) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Sign in is required to save wines.'),
+                              ),
+                            );
+                            return;
+                          }
                           try {
                             await ref
                                 .read(cellarControllerProvider.notifier)
@@ -72,7 +83,7 @@ class ResultsScreen extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Could not update your cellar. Please try again.',
+                                  'Sign in is required to save wines.',
                                 ),
                               ),
                             );

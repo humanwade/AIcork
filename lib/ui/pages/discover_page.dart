@@ -7,6 +7,7 @@ import '../../features/discover/domain/models/learn_wine_article.dart';
 import '../../features/discover/presentation/providers/discover_providers.dart';
 import '../../features/discover/presentation/screens/discover_collection_screen.dart';
 import '../../features/wine_recommendation/data/models/wine_recommendation.dart';
+import '../../features/wine_recommendation/domain/entities/wine_entity.dart';
 import '../../features/wine_recommendation/presentation/widgets/wine_card.dart';
 
 /// Static style chips for Explore Styles section.
@@ -55,7 +56,7 @@ class DiscoverPage extends ConsumerWidget {
             ref.invalidate(discoverBudgetProvider);
           },
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.fromLTRB(20, 36, 20, 16),
             children: [
               _buildForYouSection(context, theme, forYouAsync),
               const SizedBox(height: 24),
@@ -115,7 +116,7 @@ class DiscoverPage extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 160,
+              height: 168,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: items.length,
@@ -123,8 +124,8 @@ class DiscoverPage extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final wine = items[index].toEntity();
                   return SizedBox(
-                    width: 280,
-                    child: WineCard(
+                    width: 276,
+                    child: _ForYouWineCard(
                       wine: wine,
                       onTap: () {
                         context.push('/home/results/detail', extra: wine);
@@ -328,6 +329,95 @@ class _LearnCard extends StatelessWidget {
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ForYouWineCard extends StatelessWidget {
+  const _ForYouWineCard({
+    required this.wine,
+    required this.onTap,
+  });
+
+  final WineEntity wine;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasImage = wine.thumbnailUrl != null && wine.thumbnailUrl!.isNotEmpty;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 62,
+                  height: 82,
+                  child: hasImage
+                      ? Image.network(
+                          wine.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const ColoredBox(
+                            color: Color(0xFFF0E9E2),
+                            child: Icon(
+                              Icons.wine_bar_outlined,
+                              color: Color(0xFFB9A18A),
+                            ),
+                          ),
+                        )
+                      : const ColoredBox(
+                          color: Color(0xFFF0E9E2),
+                          child: Icon(
+                            Icons.wine_bar_outlined,
+                            color: Color(0xFFB9A18A),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      wine.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${wine.price.toStringAsFixed(2)}${wine.sku.isNotEmpty ? ' • SKU ${wine.sku}' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    if ((wine.tastingNotes ?? '').trim().isNotEmpty)
+                      Text(
+                        wine.tastingNotes!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),

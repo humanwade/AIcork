@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/datasources/cellar_api_service.dart';
 
@@ -38,54 +39,58 @@ class TasteProfileInsightsCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
         ),
         elevation: 1,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your Taste Profile',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (insights.summaryText != null &&
-                  insights.summaryText!.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.push('/cellar/taste-profile', extra: insights),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  insights.summaryText!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade700,
+                  'Your Taste Profile',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              if (uniqueTags.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: uniqueTags
-                      .map(
-                        (tag) => Chip(
-                          label: Text(
-                            tag,
-                            style: theme.textTheme.labelSmall,
+                if (insights.summaryText != null &&
+                    insights.summaryText!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    insights.summaryText!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade700,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (uniqueTags.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: uniqueTags
+                        .map(
+                          (tag) => Chip(
+                            label: Text(
+                              tag,
+                              style: theme.textTheme.labelSmall,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      )
-                      .toList(),
-                ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

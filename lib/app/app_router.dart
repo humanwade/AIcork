@@ -20,12 +20,14 @@ import '../features/wine_recommendation/presentation/screens/search_screen.dart'
 import '../features/wine_recommendation/presentation/screens/splash_screen.dart';
 import '../features/wine_recommendation/presentation/screens/wine_detail_screen.dart';
 import '../features/cellar/presentation/screens/details/cellar_wine_detail_screen.dart';
+import '../features/cellar/presentation/screens/details/taste_profile_detail_screen.dart';
 import '../features/cellar/presentation/screens/details/tried_wine_detail_screen.dart';
 import '../features/cellar/presentation/screens/forms/add_cellar_wine_screen.dart';
 import '../features/cellar/presentation/screens/forms/add_tried_wine_screen.dart';
 import '../features/cellar/presentation/screens/forms/edit_tried_wine_screen.dart';
 import '../features/cellar/domain/models/cellar_wine.dart';
 import '../features/cellar/domain/models/tried_wine_entry.dart';
+import '../features/cellar/data/datasources/cellar_api_service.dart';
 import '../features/discover/domain/models/learn_wine_article.dart';
 import '../features/discover/presentation/screens/learn_wine_detail_screen.dart';
 import '../ui/pages/cellar_page.dart';
@@ -101,37 +103,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _NavItem(
-                        icon: Icons.home_rounded,
-                        label: 'Home',
-                        isSelected: state.matchedLocation.startsWith('/home'),
-                        onTap: () => navigationShell.goBranch(0),
+                      Expanded(
+                        child: _NavItem(
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          isSelected: state.matchedLocation.startsWith('/home'),
+                          onTap: () => navigationShell.goBranch(0),
+                        ),
                       ),
-                      _NavItem(
-                        icon: Icons.search_rounded,
-                        label: 'Discover',
-                        isSelected:
-                            state.matchedLocation.startsWith('/discover'),
-                        onTap: () => navigationShell.goBranch(1),
+                      Expanded(
+                        child: _NavItem(
+                          icon: Icons.search_rounded,
+                          label: 'Discover',
+                          isSelected:
+                              state.matchedLocation.startsWith('/discover'),
+                          onTap: () => navigationShell.goBranch(1),
+                        ),
                       ),
-                      _ScanNavItem(
-                        isSelected: state.matchedLocation.startsWith('/scan'),
-                        onTap: () => navigationShell.goBranch(2),
+                      Expanded(
+                        child: _ScanNavItem(
+                          isSelected: state.matchedLocation.startsWith('/scan'),
+                          onTap: () => navigationShell.goBranch(2),
+                        ),
                       ),
-                      _NavItem(
-                        icon: Icons.wine_bar_rounded,
-                        label: 'My Cellar',
-                        isSelected: state.matchedLocation.startsWith('/cellar'),
-                        onTap: () => navigationShell.goBranch(3),
+                      Expanded(
+                        child: _NavItem(
+                          icon: Icons.wine_bar_rounded,
+                          label: 'My Cellar',
+                          isSelected: state.matchedLocation.startsWith('/cellar'),
+                          onTap: () => navigationShell.goBranch(3),
+                        ),
                       ),
-                      _NavItem(
-                        icon: Icons.person_outline_rounded,
-                        label: 'My Page',
-                        isSelected:
-                            state.matchedLocation.startsWith('/profile'),
-                        onTap: () => navigationShell.goBranch(4),
+                      Expanded(
+                        child: _NavItem(
+                          icon: Icons.person_outline_rounded,
+                          label: 'My Page',
+                          isSelected:
+                              state.matchedLocation.startsWith('/profile'),
+                          onTap: () => navigationShell.goBranch(4),
+                        ),
                       ),
                     ],
                   ),
@@ -282,6 +293,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       );
                     },
                   ),
+                  GoRoute(
+                    path: 'taste-profile',
+                    pageBuilder: (context, state) {
+                      final insights = state.extra as CellarInsights;
+                      return MaterialPage(
+                        child: TasteProfileDetailScreen(insights: insights),
+                      );
+                    },
+                  ),
                 ],
               ),
             ],
@@ -364,18 +384,21 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 26,
+              size: 24,
               color: isSelected ? primary : Colors.grey.shade600,
             ),
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: isSelected ? primary : Colors.grey.shade600,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -405,14 +428,14 @@ class _ScanNavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: primary,
                 shape: BoxShape.circle,
@@ -430,7 +453,7 @@ class _ScanNavItem extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
           ],
         ),
       ),

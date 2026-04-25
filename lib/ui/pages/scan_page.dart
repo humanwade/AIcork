@@ -197,7 +197,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         children: [
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.fromLTRB(24, 36, 24, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -205,18 +205,24 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _ImageSourceButton(
-                          icon: Icons.camera_alt_rounded,
-                          label: 'Take Photo',
-                          onPressed: _isRecognizing ? null : _takePhoto,
+                        child: SizedBox(
+                          height: 126,
+                          child: _ImageSourceButton(
+                            icon: Icons.camera_alt_rounded,
+                            label: 'Take Photo',
+                            onPressed: _isRecognizing ? null : _takePhoto,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _ImageSourceButton(
-                          icon: Icons.photo_library_rounded,
-                          label: 'Choose from Gallery',
-                          onPressed: _isRecognizing ? null : _chooseFromGallery,
+                        child: SizedBox(
+                          height: 126,
+                          child: _ImageSourceButton(
+                            icon: Icons.photo_library_rounded,
+                            label: 'Choose from Gallery',
+                            onPressed: _isRecognizing ? null : _chooseFromGallery,
+                          ),
                         ),
                       ),
                     ],
@@ -409,20 +415,24 @@ class _ImageSourceButton extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 36, color: theme.colorScheme.primary),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(icon, size: 30, color: theme.colorScheme.primary),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

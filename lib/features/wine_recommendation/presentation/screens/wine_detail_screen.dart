@@ -6,9 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/entities/wine_entity.dart';
 import '../widgets/wine_detail_sections.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../cellar/domain/controllers/cellar_controller.dart';
 import '../../../discover/presentation/providers/discover_providers.dart';
-import '../../data/models/wine_recommendation.dart';
 import '../../presentation/providers/recommendation_providers.dart';
 
 class WineDetailScreen extends ConsumerStatefulWidget {
@@ -234,6 +234,11 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
                   onPressed: () async {
                     debugPrint(
                         'WineDetailScreen: app bar heart tapped for sku=${wine.sku}');
+                    final auth = ref.read(authProvider);
+                    if (!auth.isAuthenticated) {
+                      _showSnack(context, 'Sign in is required to save wines.');
+                      return;
+                    }
                     try {
                       await ref
                           .read(cellarControllerProvider.notifier)
@@ -241,8 +246,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
                     } catch (e) {
                       debugPrint(
                           'WineDetailScreen: toggleWantFromRecommendation error: $e');
-                      _showSnack(context,
-                          'We could not update your cellar. Please try again.');
+                      _showSnack(context, 'Sign in is required to save wines.');
                     }
                   },
                   icon: Icon(
@@ -321,6 +325,11 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
                   onPressed: () async {
                     debugPrint(
                         'WineDetailScreen: Save to Wants tapped for sku=${wine.sku}');
+                    final auth = ref.read(authProvider);
+                    if (!auth.isAuthenticated) {
+                      _showSnack(context, 'Sign in is required to save wines.');
+                      return;
+                    }
                     try {
                       await ref
                           .read(cellarControllerProvider.notifier)
@@ -334,8 +343,7 @@ class _WineDetailScreenState extends ConsumerState<WineDetailScreen> {
                     } catch (e) {
                       debugPrint(
                           'WineDetailScreen: toggleWantFromRecommendation error: $e');
-                      _showSnack(context,
-                          'We could not update your cellar. Please try again.');
+                      _showSnack(context, 'Sign in is required to save wines.');
                     }
                   },
                   icon: Icon(
