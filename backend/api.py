@@ -1,4 +1,5 @@
 import base64
+from collections import deque
 import difflib
 import json
 import random
@@ -7,6 +8,8 @@ import secrets
 import string
 import os
 import sys
+import time
+from threading import Lock
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -15,7 +18,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from pydantic import EmailStr
 
-from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -148,6 +151,31 @@ app.add_middleware(
 
 vectorstore = None
 llm = None
+
+# Lightweight in-memory rate limiting for /recommend only.
+_RECOMMEND_RATE_LIMIT = 10
+_RECOMMEND_WINDOW_SECONDS = 60
+_recommend_rate_limit_store: Dict[str, deque[float]] = {}
+_recommend_rate_limit_lock = Lock()
+
+
+def _check_recommend_rate_limit(ip_address: str) -> bool:
+    """
+    Return True when request is allowed, False when blocked.
+    Fixed-window-like sliding cleanup over the last 60 seconds.
+    """
+    now = time.time()
+    with _recommend_rate_limit_lock:
+        bucket = _recommend_rate_limit_store.setdefault(ip_address, deque())
+        cutoff = now - _RECOMMEND_WINDOW_SECONDS
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+
+        if len(bucket) >= _RECOMMEND_RATE_LIMIT:
+            return False
+
+        bucket.append(now)
+        return True
 
 
 def _load_resources():
@@ -670,12 +698,24 @@ async def delete_cellar_entry(
 @app.post("/recommend", response_model=List[WineResult])
 async def recommend(
     req: RecommendRequest,
+    request: Request,
     current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     """Return a list of recommended wines for the given query and budget.
     Authenticated users with Tried history receive subtle personalization.
     Wine preferences (if provided) add a soft ranking bonus; they never filter results."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_recommend_rate_limit(client_ip):
+        print(f"[rate_limit] blocked ip={client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="You're requesting recommendations too quickly. Please try again in a moment.",
+        )
+    with _recommend_rate_limit_lock:
+        current_count = len(_recommend_rate_limit_store.get(client_ip, []))
+    print(f"[rate_limit] allow ip={client_ip} count={current_count}")
+
     _load_resources()
 
     wine_prefs: Optional[WinePreferences] = None
