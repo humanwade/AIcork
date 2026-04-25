@@ -83,7 +83,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               child: Text('Scan Data', style: headingStyle),
             ),
             paragraph(
-              'If the bottle scanning feature is used, images of wine labels may be processed to identify the bottle.',
+              'If the bottle scanning feature is used, images of wine labels are processed to identify the bottle, but scan images are not permanently stored by default.',
             ),
 
             Padding(
@@ -93,6 +93,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             paragraph(
               'Basic device information may be collected such as device type, OS version, and app version to improve performance.',
             ),
+            bullet('IP address and request logs for security, abuse prevention, and service reliability'),
 
             sectionTitle('How We Use Information'),
             paragraph('Information is used to:'),
@@ -101,19 +102,39 @@ class PrivacyPolicyScreen extends StatelessWidget {
             bullet('maintain your wine cellar'),
             bullet('improve the Corkey app'),
             bullet('respond to user feedback'),
+            bullet('monitor stability and protect the service from abuse'),
 
             sectionTitle('Third-Party Services'),
             paragraph('Corkey may use third-party services for:'),
-            bullet('AI-based recommendations'),
-            bullet('infrastructure and hosting'),
+            bullet('Google Gemini API for AI-based recommendations'),
+            bullet('Cloudflare for infrastructure performance and security'),
+            bullet('cloud hosting providers for application and database hosting'),
             bullet('analytics'),
 
+            sectionTitle('Security'),
+            paragraph('All data is transmitted securely using HTTPS encryption.'),
+
             sectionTitle('Data Retention'),
-            paragraph('User data is stored until the user deletes their account or requests deletion.'),
+            paragraph(
+              'User data is stored until the user deletes their account or requests deletion. Data is stored on secure servers located in Canada or cloud infrastructure providers.',
+            ),
 
             sectionTitle('Account Deletion'),
             paragraph(
               'Users may delete their account within the app. When deleted, personal data and wine history are removed.',
+            ),
+
+            sectionTitle('Account Deletion Requests'),
+            paragraph('Users can request account deletion:'),
+            bullet('within the app, or'),
+            bullet('via this form: https://forms.gle/pyjGyhyVQqkTFfXG9'),
+            paragraph(
+              'After deletion is completed, personal data is permanently deleted and cannot be recovered.',
+            ),
+
+            sectionTitle('Data Deletion Procedure'),
+            paragraph(
+              'When an account deletion request is processed, related personal data is removed from our database permanently.',
             ),
 
             sectionTitle('Children’s Privacy'),
@@ -124,7 +145,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             sectionTitle('Contact'),
             paragraph('For privacy questions:'),
-            paragraph('corkeysupport@gmail.com'),
+            paragraph('Privacy Officer'),
+            paragraph('Email: corkeysupport@gmail.com'),
 
             const SizedBox(height: 28),
           ],

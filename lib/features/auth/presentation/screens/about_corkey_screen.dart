@@ -58,33 +58,33 @@ class AboutCorkeyScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             paragraph(
-              'Corkey is an AI-powered wine discovery and pairing companion designed to help wine lovers explore new bottles, remember what they’ve tried, and discover wines that match their personal taste.',
+              'Corkey is a modern AI-powered wine companion built to help you discover better bottles, faster.',
             ),
             paragraph(
-              'Whether you are choosing a wine for dinner, scanning a bottle at a store, or building your personal wine cellar, Corkey helps make wine selection easier and more enjoyable.',
+              'From dinner planning to store visits, Corkey gives you quick, confident wine decisions with recommendations that feel personal.',
             ),
 
             sectionTitle('Key Features'),
 
             feature(
-              'AI Wine Pairing',
-              'Describe your meal, occasion, or mood, and Corkey will recommend wines that pair well with your request using natural language understanding.',
+              'AI-Powered Recommendations',
+              'Tell Corkey your meal, mood, or occasion and get AI-powered recommendations in seconds.',
             ),
             feature(
-              'Bottle Scanning',
-              'Scan a wine label to quickly identify the bottle and view tasting notes and recommendations.',
+              'Instant Label Scan',
+              'Scan wine labels instantly to identify bottles and view tasting notes and suggestions right away.',
             ),
             feature(
               'Personal Wine Cellar',
-              'Save wines you want to try and track wines you’ve already tasted. Add ratings and notes to build your personal wine history.',
+              'Save wines you want to try and track wines you already tasted in one clean, simple cellar.',
             ),
             feature(
-              'Taste Profile',
-              'As you rate wines, Corkey learns your preferences and helps generate more personalized wine recommendations.',
+              'Personalized Taste Profile',
+              'As you rate wines, Corkey builds your personalized taste profile to make future picks smarter and more relevant.',
             ),
             feature(
               'Discover Wines',
-              'Browse curated wine suggestions based on your taste profile and explore different wine styles.',
+              'Explore curated picks and new styles based on what you actually enjoy.',
             ),
 
             sectionTitle('Independent App Notice'),

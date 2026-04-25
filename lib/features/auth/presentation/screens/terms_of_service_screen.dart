@@ -78,6 +78,19 @@ class TermsOfServiceScreen extends StatelessWidget {
               'Users must keep their login credentials secure and may not misuse the service.',
             ),
 
+            sectionTitle('User Content'),
+            paragraph(
+              'Users retain ownership of content they submit in Corkey, such as tasting notes and saved wine activity.',
+            ),
+            paragraph(
+              'By using Corkey, users grant Corkey a non-exclusive license to use that content only as needed to operate and improve core app functionality.',
+            ),
+
+            sectionTitle('Account Suspension'),
+            paragraph(
+              'We reserve the right to suspend or terminate accounts for misuse or violation of these terms.',
+            ),
+
             sectionTitle('Acceptable Use'),
             paragraph('Users must comply with all applicable alcohol laws in their region.'),
 
@@ -88,6 +101,11 @@ class TermsOfServiceScreen extends StatelessWidget {
 
             sectionTitle('Changes to Terms'),
             paragraph('Terms may be updated periodically.'),
+
+            sectionTitle('Governing Law'),
+            paragraph(
+              'This agreement shall be governed by the laws of Ontario, Canada.',
+            ),
 
             sectionTitle('Contact'),
             paragraph('Questions about these terms can be sent to:'),

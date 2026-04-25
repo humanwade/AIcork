@@ -49,9 +49,24 @@ class ResultsScreen extends ConsumerWidget {
                 child: ListView.separated(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  itemCount: wines.length,
+                  itemCount: wines.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {
+                    if (index == wines.length) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 4),
+                        child: Center(
+                          child: Text(
+                            '* AI-based recommendations may not always be accurate.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 11,
+                                ),
+                          ),
+                        ),
+                      );
+                    }
                     final wine = wines[index];
                     final isSaved = savedSkus.contains(wine.sku);
                     return WineCard(
