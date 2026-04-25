@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutCorkeyScreen extends StatelessWidget {
   const AboutCorkeyScreen({super.key});
@@ -46,6 +47,22 @@ class AboutCorkeyScreen extends StatelessWidget {
             ],
           ),
         );
+
+    Future<void> openSupportEmail() async {
+      final uri = Uri(
+        scheme: 'mailto',
+        path: 'corkeysupport@gmail.com',
+        query: 'subject=${Uri.encodeComponent('Corkey Support')}',
+      );
+      final ok = await launchUrl(uri);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -96,7 +113,19 @@ class AboutCorkeyScreen extends StatelessWidget {
             ),
 
             sectionTitle('Contact'),
-            paragraph('corkeysupport@gmail.com'),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: InkWell(
+                onTap: openSupportEmail,
+                child: Text(
+                  'corkeysupport@gmail.com',
+                  style: bodyStyle?.copyWith(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
 
             sectionTitle('App Information'),
             bullet('App Name: Corkey'),

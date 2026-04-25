@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
@@ -24,6 +25,22 @@ class TermsOfServiceScreen extends StatelessWidget {
           padding: const EdgeInsets.only(top: 8),
           child: Text(text, style: bodyStyle),
         );
+
+    Future<void> openTermsEmail() async {
+      final uri = Uri(
+        scheme: 'mailto',
+        path: 'corkeysupport@gmail.com',
+        query: 'subject=${Uri.encodeComponent('Corkey Terms Question')}',
+      );
+      final ok = await launchUrl(uri);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -109,7 +126,19 @@ class TermsOfServiceScreen extends StatelessWidget {
 
             sectionTitle('Contact'),
             paragraph('Questions about these terms can be sent to:'),
-            paragraph('corkeysupport@gmail.com'),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: InkWell(
+                onTap: openTermsEmail,
+                child: Text(
+                  'corkeysupport@gmail.com',
+                  style: bodyStyle?.copyWith(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
 
             const SizedBox(height: 28),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
@@ -35,6 +36,34 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ],
           ),
         );
+
+    Future<void> openDeletionForm() async {
+      final uri = Uri.parse('https://forms.gle/pyjGyhyVQqkTFfXG9');
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the account deletion form.'),
+          ),
+        );
+      }
+    }
+
+    Future<void> openPrivacyEmail() async {
+      final uri = Uri(
+        scheme: 'mailto',
+        path: 'corkeysupport@gmail.com',
+        query: 'subject=${Uri.encodeComponent('Corkey Privacy Question')}',
+      );
+      final ok = await launchUrl(uri);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -127,7 +156,27 @@ class PrivacyPolicyScreen extends StatelessWidget {
             sectionTitle('Account Deletion Requests'),
             paragraph('Users can request account deletion:'),
             bullet('within the app, or'),
-            bullet('via this form: https://forms.gle/pyjGyhyVQqkTFfXG9'),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('•  ', style: bodyStyle),
+                  Expanded(
+                    child: InkWell(
+                      onTap: openDeletionForm,
+                      child: Text(
+                        'via this form: https://forms.gle/pyjGyhyVQqkTFfXG9',
+                        style: bodyStyle?.copyWith(
+                          color: theme.colorScheme.primary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             paragraph(
               'After deletion is completed, personal data is permanently deleted and cannot be recovered.',
             ),
@@ -146,7 +195,19 @@ class PrivacyPolicyScreen extends StatelessWidget {
             sectionTitle('Contact'),
             paragraph('For privacy questions:'),
             paragraph('Privacy Officer'),
-            paragraph('Email: corkeysupport@gmail.com'),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: InkWell(
+                onTap: openPrivacyEmail,
+                child: Text(
+                  'Email: corkeysupport@gmail.com',
+                  style: bodyStyle?.copyWith(
+                    color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
 
             const SizedBox(height: 28),
           ],
