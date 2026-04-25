@@ -171,11 +171,22 @@ def recommend_wines(
     )
 
     # Generate sommelier notes AFTER deterministic ranking.
-    llm_input = [w["structured"] | {"notes": w["lcbo_tastingnotes"]} for w in wine_payloads]
+    llm_input = [
+        w["structured"]
+        | {
+            "sku": w.get("sku"),
+            "wine_type": w.get("wine_type"),
+            "notes": w["lcbo_tastingnotes"],
+        }
+        for w in wine_payloads
+    ]
     sommelier_notes = build_sommelier_explanations(
         llm=llm,
         parsed_query=parsed,
         wines=llm_input,
+        top_k=top_k,
+        max_budget=max_budget,
+        wine_preferences=wine_preferences,
     )
 
     for wine, note in zip(wine_payloads, sommelier_notes):
