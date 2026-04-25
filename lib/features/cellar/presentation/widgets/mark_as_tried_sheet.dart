@@ -19,7 +19,9 @@ Future<bool?> showMarkAsTriedSheet(
     showDragHandle: true,
     isScrollControlled: true,
     backgroundColor: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
     builder: (ctx) => _MarkAsTriedSheetContent(
       want: want,
       ref: ref,
