@@ -53,9 +53,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
       final uri = Uri(
         scheme: 'mailto',
         path: 'corkeysupport@gmail.com',
-        query: 'subject=${Uri.encodeComponent('Corkey Privacy Question')}',
+        queryParameters: {'subject': 'Corkey Privacy Question',},
       );
-      final ok = await launchUrl(uri);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -105,7 +105,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
             bullet(
               'IP address and request logs (used for security, abuse prevention, rate limiting)',
             ),
-            bullet('Scan data (processed temporarily, NOT permanently stored)'),
+            bullet('Scan data is processed in memory and not permanently stored on Corkey servers'),
+            bullet('Scan images may be securely transmitted to third-party AI services (such as Google Gemini API) for the purpose of extracting wine information'),
+            bullet('Scan images are not retained by Corkey after processing'),
             bullet('Device information (device type, OS version, app version)'),
 
             sectionTitle('How We Use Information'),
@@ -120,14 +122,14 @@ class PrivacyPolicyScreen extends StatelessWidget {
             bullet('Cloud hosting providers'),
 
             sectionTitle('Data Sharing'),
-            bullet('We do NOT sell or share personal data for advertising'),
-            bullet('Data is only processed as needed to operate the service'),
+            bullet('We do NOT sell personal data'),
+            bullet('We may share limited data with third-party service providers (such as AI processing and hosting services) only as necessary to operate Corkey and provide its core functionality'),
 
             sectionTitle('Security'),
             bullet('All data is transmitted using HTTPS encryption'),
 
             sectionTitle('Data Retention & Storage'),
-            bullet('Data is stored until the user deletes their account'),
+            bullet('Data is stored until the user deletes their account or submits a deletion request'),
             bullet('Data may be processed in Canada or other regions'),
 
             sectionTitle('Account Deletion'),
@@ -169,15 +171,20 @@ class PrivacyPolicyScreen extends StatelessWidget {
             paragraph('Privacy Officer'),
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: InkWell(
-                onTap: openPrivacyEmail,
-                child: Text(
-                  'corkeysupport@gmail.com',
-                  style: bodyStyle?.copyWith(
-                    color: theme.colorScheme.primary,
-                    decoration: TextDecoration.underline,
+              child: Row(
+                children: [
+                  Text('Email: ', style: bodyStyle), 
+                  InkWell(
+                    onTap: openPrivacyEmail,
+                    child: Text(
+                      'corkeysupport@gmail.com',
+                      style: bodyStyle?.copyWith(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
