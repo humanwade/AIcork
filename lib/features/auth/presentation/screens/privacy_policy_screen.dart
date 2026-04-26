@@ -131,7 +131,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             bullet('Data may be processed in Canada or other regions'),
 
             sectionTitle('Account Deletion'),
-            bullet('In-app: My Page > Settings > Delete Account'),
+            bullet('In-app: My Page > Edit profile > Delete Account'),
             bullet('Web form:'),
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 12),
