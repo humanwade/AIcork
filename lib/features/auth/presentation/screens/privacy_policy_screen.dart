@@ -43,7 +43,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       if (!ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not open the account deletion form.'),
+            content: Text('Could not open the link.'),
           ),
         );
       }
@@ -60,6 +60,18 @@ class PrivacyPolicyScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No email app found. Please install or configure one.'),
+          ),
+        );
+      }
+    }
+
+    Future<void> openFullPrivacyPolicy() async {
+      final uri = Uri.parse('https://wine-api.wadeverse.net/static/privacy.html');
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the link.'),
           ),
         );
       }
@@ -82,69 +94,45 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ),
             ),
             paragraph('Last updated: 2026'),
-            paragraph(
-              'Corkey respects your privacy and is committed to protecting your personal information.',
-            ),
 
             sectionTitle('Information We Collect'),
-
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text('Account Information', style: headingStyle),
-            ),
-            bullet('First name'),
-            bullet('Last name'),
+            bullet('First name and last name'),
             bullet('Email address'),
             bullet('Encrypted password'),
-
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text('Wine Activity Data', style: headingStyle),
+            bullet(
+              'Wine preferences and interactions (saved wines, tried wines, ratings, notes)',
             ),
-            bullet('Wine preferences and interactions'),
-
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text('Usage Data', style: headingStyle),
+            bullet(
+              'IP address and request logs (used for security, abuse prevention, rate limiting)',
             ),
-            bullet('IP address and request logs'),
-
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text('Data Processing', style: headingStyle),
-            ),
-            paragraph(
-              'Wine scan images may be processed to generate recommendations but are not permanently stored.',
-            ),
+            bullet('Scan data (processed temporarily, NOT permanently stored)'),
+            bullet('Device information (device type, OS version, app version)'),
 
             sectionTitle('How We Use Information'),
-            paragraph('Information is used to:'),
             bullet('Provide AI-based wine recommendations'),
-            bullet('Improve app performance and user experience'),
-            bullet('Ensure system security and prevent abuse'),
+            bullet('Maintain personal wine cellar'),
+            bullet('Improve app experience'),
+            bullet('Monitor stability and prevent abuse'),
 
             sectionTitle('Third-Party Services'),
-            paragraph('Corkey may use third-party services for:'),
-            bullet('Google Gemini API for AI-based recommendations'),
-            bullet('Cloudflare (network and security services)'),
-            bullet('Cloud hosting providers (server infrastructure)'),
+            bullet('Google Gemini API (AI recommendations)'),
+            bullet('Cloudflare (network, security)'),
+            bullet('Cloud hosting providers'),
+
+            sectionTitle('Data Sharing'),
+            bullet('We do NOT sell or share personal data for advertising'),
+            bullet('Data is only processed as needed to operate the service'),
 
             sectionTitle('Security'),
-            paragraph('All data is transmitted securely using HTTPS encryption.'),
+            bullet('All data is transmitted using HTTPS encryption'),
 
-            sectionTitle('Data Retention'),
-            paragraph(
-              'Data is stored on secure servers located in Canada or cloud infrastructure providers.',
-            ),
+            sectionTitle('Data Retention & Storage'),
+            bullet('Data is stored until the user deletes their account'),
+            bullet('Data may be processed in Canada or other regions'),
 
             sectionTitle('Account Deletion'),
-            paragraph(
-              'You can request deletion of your account and personal data.',
-            ),
-
-            sectionTitle('Account Deletion Requests'),
-            paragraph('You can request deletion of your account and personal data:'),
-            bullet('within the app, or'),
+            bullet('In-app: My Page > Settings > Delete Account'),
+            bullet('Web form:'),
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 12),
               child: Row(
@@ -155,7 +143,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     child: InkWell(
                       onTap: openDeletionForm,
                       child: Text(
-                        'via this form: https://forms.gle/pyjGyhyVQqkTFfXG9',
+                        'https://forms.gle/pyjGyhyVQqkTFfXG9',
                         style: bodyStyle?.copyWith(
                           color: theme.colorScheme.primary,
                           decoration: TextDecoration.underline,
@@ -166,34 +154,42 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 ],
               ),
             ),
-            paragraph(
-              'All deletion requests are processed within a reasonable timeframe. Once deleted, data cannot be recovered.',
-            ),
 
             sectionTitle('Data Deletion Procedure'),
-            paragraph(
-              'When a deletion request is received, all associated user data is permanently removed from our database and cannot be restored.',
-            ),
+            bullet('Data is permanently deleted'),
+            bullet('Cannot be recovered'),
 
-            sectionTitle('Children’s Privacy'),
-            paragraph(
-              'Corkey is intended for users who are of legal drinking age in their jurisdiction. We do not knowingly collect personal information from individuals under the legal drinking age.',
-            ),
+            sectionTitle("Children's Privacy"),
+            bullet('Only for users of legal drinking age'),
 
-            sectionTitle('Changes to This Policy'),
-            paragraph('This Privacy Policy may be updated periodically.'),
+            sectionTitle('Changes'),
+            bullet('Policy may be updated'),
 
             sectionTitle('Contact'),
-            paragraph('For privacy questions:'),
             paragraph('Privacy Officer'),
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: InkWell(
                 onTap: openPrivacyEmail,
                 child: Text(
-                  'Email: corkeysupport@gmail.com',
+                  'corkeysupport@gmail.com',
                   style: bodyStyle?.copyWith(
                     color: theme.colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.center,
+              child: InkWell(
+                onTap: openFullPrivacyPolicy,
+                child: Text(
+                  'View full Privacy Policy',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.blueGrey.shade400,
                     decoration: TextDecoration.underline,
                   ),
                 ),
