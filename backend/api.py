@@ -19,6 +19,7 @@ from pathlib import Path
 from pydantic import EmailStr
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -139,6 +140,8 @@ class WineResult(BaseModel):
 
 
 app = FastAPI(title="LCBO Wine Recommendation API")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,

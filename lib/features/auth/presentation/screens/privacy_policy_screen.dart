@@ -101,60 +101,49 @@ class PrivacyPolicyScreen extends StatelessWidget {
               padding: const EdgeInsets.only(top: 16),
               child: Text('Wine Activity Data', style: headingStyle),
             ),
-            bullet('Saved wines (Wants)'),
-            bullet('Tried wines'),
-            bullet('Wine ratings'),
-            bullet('Tasting notes'),
-            bullet('Wine preferences'),
+            bullet('Wine preferences and interactions'),
 
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Text('Scan Data', style: headingStyle),
+              child: Text('Usage Data', style: headingStyle),
             ),
-            paragraph(
-              'If the bottle scanning feature is used, images of wine labels are processed to identify the bottle, but scan images are not permanently stored by default.',
-            ),
+            bullet('IP address and request logs'),
 
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Text('Device Information', style: headingStyle),
+              child: Text('Data Processing', style: headingStyle),
             ),
             paragraph(
-              'Basic device information may be collected such as device type, OS version, and app version to improve performance.',
+              'Wine scan images may be processed to generate recommendations but are not permanently stored.',
             ),
-            bullet('IP address and request logs for security, abuse prevention, and service reliability'),
 
             sectionTitle('How We Use Information'),
             paragraph('Information is used to:'),
-            bullet('provide wine recommendations'),
-            bullet('personalize suggestions'),
-            bullet('maintain your wine cellar'),
-            bullet('improve the Corkey app'),
-            bullet('respond to user feedback'),
-            bullet('monitor stability and protect the service from abuse'),
+            bullet('Provide AI-based wine recommendations'),
+            bullet('Improve app performance and user experience'),
+            bullet('Ensure system security and prevent abuse'),
 
             sectionTitle('Third-Party Services'),
             paragraph('Corkey may use third-party services for:'),
             bullet('Google Gemini API for AI-based recommendations'),
-            bullet('Cloudflare for infrastructure performance and security'),
-            bullet('cloud hosting providers for application and database hosting'),
-            bullet('analytics'),
+            bullet('Cloudflare (network and security services)'),
+            bullet('Cloud hosting providers (server infrastructure)'),
 
             sectionTitle('Security'),
             paragraph('All data is transmitted securely using HTTPS encryption.'),
 
             sectionTitle('Data Retention'),
             paragraph(
-              'User data is stored until the user deletes their account or requests deletion. Data is stored on secure servers located in Canada or cloud infrastructure providers.',
+              'Data is stored on secure servers located in Canada or cloud infrastructure providers.',
             ),
 
             sectionTitle('Account Deletion'),
             paragraph(
-              'Users may delete their account within the app. When deleted, personal data and wine history are removed.',
+              'You can request deletion of your account and personal data.',
             ),
 
             sectionTitle('Account Deletion Requests'),
-            paragraph('Users can request account deletion:'),
+            paragraph('You can request deletion of your account and personal data:'),
             bullet('within the app, or'),
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 12),
@@ -178,16 +167,18 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ),
             ),
             paragraph(
-              'After deletion is completed, personal data is permanently deleted and cannot be recovered.',
+              'All deletion requests are processed within a reasonable timeframe. Once deleted, data cannot be recovered.',
             ),
 
             sectionTitle('Data Deletion Procedure'),
             paragraph(
-              'When an account deletion request is processed, related personal data is removed from our database permanently.',
+              'When a deletion request is received, all associated user data is permanently removed from our database and cannot be restored.',
             ),
 
             sectionTitle('Children’s Privacy'),
-            paragraph('Corkey is intended for users of legal drinking age.'),
+            paragraph(
+              'Corkey is intended for users who are of legal drinking age in their jurisdiction. We do not knowingly collect personal information from individuals under the legal drinking age.',
+            ),
 
             sectionTitle('Changes to This Policy'),
             paragraph('This Privacy Policy may be updated periodically.'),

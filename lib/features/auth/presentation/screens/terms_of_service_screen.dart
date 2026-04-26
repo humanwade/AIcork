@@ -53,54 +53,32 @@ class TermsOfServiceScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Terms of Service for Corkey',
+              'Terms of Service',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             paragraph('Last updated: 2026'),
-            paragraph('By using the Corkey app you agree to the following terms.'),
+            paragraph('By using Corkey, you agree to the following terms.'),
 
-            sectionTitle('Service Description'),
+            sectionTitle('Use of Service'),
             paragraph(
-              'Corkey provides wine discovery tools, wine pairing suggestions, bottle scanning features, and personal wine tracking.',
+              'Corkey provides AI-powered wine recommendations based on user input and preferences.',
             ),
 
-            sectionTitle('Independent Application'),
+            sectionTitle('AI Disclaimer'),
             paragraph(
-              'Corkey is an independent application and is not affiliated with, endorsed by, or operated by the Liquor Control Board of Ontario (LCBO).',
+              'Recommendations are generated using artificial intelligence and may not always be accurate or complete.',
             ),
 
-            sectionTitle('Wine Information Disclaimer'),
+            sectionTitle('User Responsibilities'),
             paragraph(
-              'Wine descriptions, tasting notes, and recommendations are generated using algorithms and AI models.',
-            ),
-            paragraph(
-              'Corkey does not guarantee the accuracy of product details, pricing, or availability.',
-            ),
-            paragraph('Users should verify product information directly with the retailer.'),
-
-            sectionTitle('Recommendations Disclaimer'),
-            paragraph(
-              'Wine recommendations are informational and should not be considered professional advice.',
-            ),
-
-            sectionTitle('External Links'),
-            paragraph(
-              'Corkey may link to third-party websites such as wine retailers. Corkey is not responsible for their content.',
-            ),
-
-            sectionTitle('User Accounts'),
-            paragraph(
-              'Users must keep their login credentials secure and may not misuse the service.',
+              'You agree to use the app responsibly and not misuse the service.',
             ),
 
             sectionTitle('User Content'),
             paragraph(
-              'Users retain ownership of content they submit in Corkey, such as tasting notes and saved wine activity.',
-            ),
-            paragraph(
-              'By using Corkey, users grant Corkey a non-exclusive license to use that content only as needed to operate and improve core app functionality.',
+              'Users retain ownership of any content they submit. By using the service, you grant Corkey a non-exclusive, worldwide, royalty-free license to use, display, and process such content for service operation.',
             ),
 
             sectionTitle('Account Suspension'),
@@ -108,20 +86,24 @@ class TermsOfServiceScreen extends StatelessWidget {
               'We reserve the right to suspend or terminate accounts for misuse or violation of these terms.',
             ),
 
-            sectionTitle('Acceptable Use'),
-            paragraph('Users must comply with all applicable alcohol laws in their region.'),
-
             sectionTitle('Limitation of Liability'),
             paragraph(
-              'Corkey is not responsible for decisions made based on wine recommendations or external product information.',
+              'Corkey is not responsible for any decisions made based on recommendations provided by the app.',
             ),
-
-            sectionTitle('Changes to Terms'),
-            paragraph('Terms may be updated periodically.'),
 
             sectionTitle('Governing Law'),
             paragraph(
               'This agreement shall be governed by the laws of Ontario, Canada.',
+            ),
+
+            sectionTitle('Alcohol Law Compliance'),
+            paragraph(
+              'By using Corkey, you represent that you are of legal drinking age in your region. You are responsible for complying with all local laws regarding the purchase and consumption of alcohol.',
+            ),
+
+            sectionTitle('Independent Application'),
+            paragraph(
+              'Corkey is an independent application and is not affiliated with, endorsed by, or operated by the Liquor Control Board of Ontario (LCBO) or any wine retailer.',
             ),
 
             sectionTitle('Contact'),

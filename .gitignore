@@ -48,6 +48,7 @@ app.*.map.json
 backend/.env
 backend/.venv/
 backend/__pycache__/
+backend/cache/
 
 # Data files and indexes (large/generated)
 data/9480_wine_final_master.json

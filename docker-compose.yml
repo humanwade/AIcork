@@ -45,6 +45,7 @@ services:
     
     volumes:
       - ./data:/app/data:ro
+      - ./backend/cache:/app/cache
 
 volumes:
   postgres_data:
