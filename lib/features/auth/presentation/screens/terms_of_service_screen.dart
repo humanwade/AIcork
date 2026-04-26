@@ -41,9 +41,9 @@ class TermsOfServiceScreen extends StatelessWidget {
       final uri = Uri(
         scheme: 'mailto',
         path: 'corkeysupport@gmail.com',
-        query: 'subject=${Uri.encodeComponent('Corkey Terms Question')}',
+        queryParameters: {'subject': 'Corkey Terms Question',},
       );
-      final ok = await launchUrl(uri);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -88,6 +88,7 @@ class TermsOfServiceScreen extends StatelessWidget {
 
             sectionTitle('AI Disclaimer'),
             bullet('Recommendations may not be accurate'),
+            bullet('Pricing and availability are not guaranteed'),
             bullet('Informational only'),
 
             sectionTitle('User Responsibilities'),
@@ -121,15 +122,20 @@ class TermsOfServiceScreen extends StatelessWidget {
             sectionTitle('Contact'),
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: InkWell(
-                onTap: openTermsEmail,
-                child: Text(
-                  'corkeysupport@gmail.com',
-                  style: bodyStyle?.copyWith(
-                    color: theme.colorScheme.primary,
-                    decoration: TextDecoration.underline,
+              child: Row(
+                children: [
+                  Text('Email: ', style: bodyStyle),
+                  InkWell(
+                    onTap: openTermsEmail,
+                    child: Text(
+                      'corkeysupport@gmail.com',
+                      style: bodyStyle?.copyWith(
+                        color: theme.colorScheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
