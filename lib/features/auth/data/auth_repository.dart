@@ -13,7 +13,6 @@ class AuthRepository {
     required String lastName,
     required String email,
     required String password,
-    required String phoneNumber,
   }) async {
     try {
       await _dio.post(
@@ -23,7 +22,6 @@ class AuthRepository {
           'last_name': lastName,
           'email': email,
           'password': password,
-          'phone_number': phoneNumber,
         },
       );
     } on DioException catch (e) {
@@ -43,7 +41,6 @@ class AuthRepository {
     required String lastName,
     required String email,
     required String password,
-    required String phoneNumber,
   }) async {
     try {
       await _dio.post(
@@ -53,7 +50,6 @@ class AuthRepository {
           'last_name': lastName,
           'email': email,
           if (password.trim().isNotEmpty) 'password': password,
-          'phone_number': phoneNumber,
         },
       );
     } on DioException catch (e) {
@@ -194,14 +190,12 @@ class AuthRepository {
   Future<void> updateProfile({
     required String firstName,
     required String lastName,
-    required String phoneNumber,
   }) async {
     final response = await _dio.patch(
       '/auth/me',
       data: {
         'first_name': firstName,
         'last_name': lastName,
-        'phone_number': phoneNumber,
       },
     );
     debugPrint('AuthRepository.updateProfile: status=${response.statusCode}');

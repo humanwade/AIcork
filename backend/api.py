@@ -293,7 +293,6 @@ async def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         hashed_password=hash_password(payload.password),
         first_name=payload.first_name,
         last_name=payload.last_name,
-        phone_number=payload.phone_number,
     )
     db.add(user)
     db.commit()

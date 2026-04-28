@@ -37,7 +37,6 @@ class SignupRequest(BaseModel):
     last_name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    phone_number: Optional[str] = Field(default=None, max_length=40)
 
 
 class SendVerificationCodeRequest(BaseModel):
@@ -52,7 +51,6 @@ class SendVerificationCodeRequest(BaseModel):
     last_name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     password: Optional[str] = None
-    phone_number: Optional[str] = Field(default=None, max_length=40)
 
 
 class LoginResponse(BaseModel):
@@ -65,7 +63,6 @@ class UserPublic(BaseModel):
     email: EmailStr
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    phone_number: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -75,7 +72,6 @@ class UserPublic(BaseModel):
 class UserUpdate(BaseModel):
     first_name: Optional[str] = Field(default=None, max_length=120)
     last_name: Optional[str] = Field(default=None, max_length=120)
-    phone_number: Optional[str] = Field(default=None, max_length=40)
 
 
 class WineEntryCreate(BaseModel):

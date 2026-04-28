@@ -1,4 +1,4 @@
-package com.example.wine_recommendation_app
+package com.wevai.corkey
 
 import io.flutter.embedding.android.FlutterActivity
 

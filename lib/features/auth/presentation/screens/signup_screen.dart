@@ -23,7 +23,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _obscure = true;
   bool _obscureConfirm = true;
@@ -37,91 +36,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String? _passwordError;
   String? _confirmPasswordError;
   bool _confirmPasswordMatches = false;
-  // Dropdown's selected value must be unique (even if dialing codes are the same).
-  // We store a country key and map it to the dialing code when building the phone number.
-  String _countryCodeOption = 'CA';
   String? _emailForVerification;
-
-  String _fullPhoneNumber() {
-    final local = _phoneCtrl.text.trim();
-    if (local.isEmpty) return '';
-    final dialingCode = switch (_countryCodeOption) {
-      'AU' => '+61',
-      'BR' => '+55',
-      'KR' => '+82',
-      'CN' => '+86',
-      'DE' => '+49',
-      'ES' => '+34',
-      'FR' => '+33',
-      'GB' => '+44',
-      'HK' => '+852',
-      'IN' => '+91',
-      'IT' => '+39',
-      'JP' => '+81',
-      'MX' => '+52',
-      'PH' => '+63',
-      'SG' => '+65',
-      'TH' => '+66',
-      'TW' => '+886',
-      'VN' => '+84',
-      'CA' => '+1',
-      'US' => '+1',
-      _ => '+1',
-    };
-    return '$dialingCode$local';
-  }
-
-  String _dialingCodeFor(String countryOption) {
-    return switch (countryOption) {
-      'AU' => '+61',
-      'BR' => '+55',
-      'CA' => '+1',
-      'CN' => '+86',
-      'DE' => '+49',
-      'ES' => '+34',
-      'FR' => '+33',
-      'GB' => '+44',
-      'HK' => '+852',
-      'IN' => '+91',
-      'IT' => '+39',
-      'JP' => '+81',
-      'KR' => '+82',
-      'MX' => '+52',
-      'PH' => '+63',
-      'SG' => '+65',
-      'TH' => '+66',
-      'TW' => '+886',
-      'US' => '+1',
-      'VN' => '+84',
-      _ => '+1',
-    };
-  }
-
-  String _countryShortLabelFor(String countryOption) {
-    return switch (countryOption) {
-      'AU' => 'Australia',
-      'BR' => 'Brazil',
-      'CA' => 'Canada',
-      'CN' => 'China',
-      'DE' => 'Germany',
-      'ES' => 'Spain',
-      'FR' => 'France',
-      'GB' => 'UK',
-      'HK' => 'Hong Kong',
-      'IN' => 'India',
-      'IT' => 'Italy',
-      'JP' => 'Japan',
-      'KR' => 'Korea',
-      'MX' => 'Mexico',
-      'PH' => 'Philippines',
-      'SG' => 'Singapore',
-      'TH' => 'Thailand',
-      'TW' => 'Taiwan',
-      'US' => 'USA',
-      'VN' => 'Vietnam',
-      _ => 'Canada',
-    };
-  }
 
   void _startResendCooldown() {
     _resendCooldownTimer?.cancel();
@@ -169,7 +84,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
-    _phoneCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
   }
@@ -186,7 +100,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final password = _passwordCtrl.text.trim();
     final firstName = _firstNameCtrl.text.trim();
     final lastName = _lastNameCtrl.text.trim();
-    final phone = _fullPhoneNumber();
 
     if (!email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -221,7 +134,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             lastName: lastName,
             email: email,
             password: password,
-            phoneNumber: phone,
           );
       if (!mounted) return;
       debugPrint('SignupScreen: verification code requested for $email');
@@ -284,7 +196,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final lastName = _lastNameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
-    final phone = _fullPhoneNumber();
     final code = _codeCtrl.text.trim();
 
     try {
@@ -296,7 +207,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             lastName: lastName,
             email: email,
             password: password,
-            phoneNumber: phone,
             verificationCode: code,
           );
       if (!mounted) return;
@@ -663,285 +573,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 144,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                          ),
-                          color: Colors.white,
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _countryCodeOption,
-                            isExpanded: true,
-                            itemHeight: 48,
-                            selectedItemBuilder: (context) {
-                              const options = [
-                                'CA',
-                                'US',
-                                'KR',
-                                'JP',
-                                'CN',
-                                'GB',
-                                'AU',
-                                'FR',
-                                'DE',
-                                'IT',
-                                'ES',
-                                'IN',
-                                'MX',
-                                'BR',
-                                'PH',
-                                'VN',
-                                'TH',
-                                'TW',
-                                'HK',
-                                'SG',
-                              ];
-                              return options
-                                  .map(
-                                    (value) => Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '${_countryShortLabelFor(value)} ${_dialingCodeFor(value)}',
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  )
-                                  .toList();
-                            },
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'CA',
-                                child: Text(
-                                  'Canada +1',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'US',
-                                child: Text(
-                                  'US +1',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'KR',
-                                child: Text(
-                                  'Korea +82',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'JP',
-                                child: Text(
-                                  'Japan +81',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'CN',
-                                child: Text(
-                                  'China +86',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'GB',
-                                child: Text(
-                                  'UK +44',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'AU',
-                                child: Text(
-                                  'Australia +61',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'FR',
-                                child: Text(
-                                  'France +33',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'DE',
-                                child: Text(
-                                  'Germany +49',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'IT',
-                                child: Text(
-                                  'Italy +39',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'ES',
-                                child: Text(
-                                  'Spain +34',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'IN',
-                                child: Text(
-                                  'India +91',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'MX',
-                                child: Text(
-                                  'Mexico +52',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'BR',
-                                child: Text(
-                                  'Brazil +55',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'PH',
-                                child: Text(
-                                  'Philippines +63',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'VN',
-                                child: Text(
-                                  'Vietnam +84',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'TH',
-                                child: Text(
-                                  'Thailand +66',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'TW',
-                                child: Text(
-                                  'Taiwan +886',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'HK',
-                                child: Text(
-                                  'Hong Kong +852',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'SG',
-                                child: Text(
-                                  'Singapore +65',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _countryCodeOption = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _phoneCtrl,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone number',
-                          hintText: 'Phone number',
-                        ),
-                        validator: (v) {
-                          final local = v?.trim() ?? '';
-                          if (local.isEmpty) {
-                            return 'Phone number is required.';
-                          }
-                          final normalized =
-                              local.replaceAll(RegExp(r'[\s\-]'), '');
-                          if (!RegExp(r'^[0-9]+$').hasMatch(normalized)) {
-                            return 'Please enter a valid phone number.';
-                          }
-                          if (normalized.length < 6) {
-                            return 'Please enter a valid phone number.';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

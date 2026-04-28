@@ -21,7 +21,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -41,7 +40,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _firstNameCtrl.text = me['first_name'] as String? ?? '';
       _lastNameCtrl.text = me['last_name'] as String? ?? '';
       _emailCtrl.text = me['email'] as String? ?? '';
-      _phoneCtrl.text = me['phone_number'] as String? ?? '';
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +60,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await repo.updateProfile(
         firstName: _firstNameCtrl.text.trim(),
         lastName: _lastNameCtrl.text.trim(),
-        phoneNumber: _phoneCtrl.text.trim(),
       );
       await ref.read(authProvider.notifier).hydrate();
       if (!mounted) return;
@@ -153,7 +150,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -193,21 +189,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       controller: _emailCtrl,
                       readOnly: true,
                       decoration: const InputDecoration(labelText: 'Email'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                          labelText: 'Phone number'),
-                      validator: (v) {
-                        final value = v?.trim() ?? '';
-                        if (value.isEmpty) return 'Required';
-                        if (!RegExp(r'^[+\d][\d\s\-]{6,}$').hasMatch(value)) {
-                          return 'Enter a valid phone number.';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
