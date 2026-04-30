@@ -9,6 +9,7 @@ import '../features/auth/presentation/screens/reset_password_screen.dart';
 import '../features/auth/presentation/screens/signup_screen.dart';
 import '../features/auth/presentation/screens/change_password_screen.dart';
 import '../features/auth/presentation/screens/edit_profile_screen.dart';
+import '../features/auth/presentation/screens/ios_age_gate_screen.dart';
 import '../features/auth/presentation/screens/about_corkey_screen.dart';
 import '../features/auth/presentation/screens/privacy_policy_screen.dart';
 import '../features/auth/presentation/screens/terms_of_service_screen.dart';
@@ -68,6 +69,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             child: ResetPasswordScreen(initialToken: token),
           );
         },
+      ),
+      GoRoute(
+        path: IosAgeGateScreen.routePath,
+        name: IosAgeGateScreen.routeName,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: IosAgeGateScreen(),
+        ),
       ),
       GoRoute(
         path: IntroSplashPage.routePath,

@@ -110,6 +110,9 @@ class TermsOfServiceScreen extends StatelessWidget {
             sectionTitle('Independent Application'),
             bullet('Not affiliated with LCBO or any retailer'),
 
+            sectionTitle('Camera and Device Permissions'),
+            bullet('Camera permission may be requested only when you use the wine label scan feature'),
+
             sectionTitle('External Links'),
             bullet('Corkey is not responsible for third-party sites'),
 

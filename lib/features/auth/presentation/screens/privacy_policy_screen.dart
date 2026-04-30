@@ -108,6 +108,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             bullet('Scan data is processed in memory and not permanently stored on Corkey servers'),
             bullet('Scan images may be securely transmitted to third-party AI services (such as Google Gemini API) for the purpose of extracting wine information'),
             bullet('Scan images are not retained by Corkey after processing'),
+            bullet('Third-party providers may process data under their own privacy policies, and Corkey does not control third-party retention practices'),
             bullet('Device information (device type, OS version, app version)'),
 
             sectionTitle('How We Use Information'),
@@ -127,6 +128,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             sectionTitle('Security'),
             bullet('All data is transmitted using HTTPS encryption'),
+
+            sectionTitle('Permissions'),
+            bullet('Camera permission is requested only when you choose to scan a wine label'),
+            bullet('If camera permission is denied, you can still use recommendations and cellar features'),
 
             sectionTitle('Data Retention & Storage'),
             bullet('Data is stored until the user deletes their account or submits a deletion request'),

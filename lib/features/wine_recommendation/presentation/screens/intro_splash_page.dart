@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../auth/presentation/screens/ios_age_gate_screen.dart';
 
 class IntroSplashPage extends StatefulWidget {
   const IntroSplashPage({super.key});
@@ -19,8 +23,17 @@ class _IntroSplashPageState extends State<IntroSplashPage> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1200), () {
+    _timer = Timer(const Duration(milliseconds: 1200), () async {
       if (!mounted) return;
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final prefs = await SharedPreferences.getInstance();
+        final accepted = prefs.getBool(IosAgeGateScreen.acceptedKey) ?? false;
+        if (!mounted) return;
+        if (!accepted) {
+          context.go(IosAgeGateScreen.routePath);
+          return;
+        }
+      }
       context.go('/home');
     });
   }
