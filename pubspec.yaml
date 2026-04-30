@@ -78,16 +78,17 @@ dev_dependencies:
 
 flutter_native_splash:
   color: "#EDE6DC"   
-  image: assets/icon/corkey_icon.png
+  image: assets/splash/corkey_splash.png
 
   android_12:
     color: "#EDE6DC"
-    image: assets/icon/corkey_icon.png 
+    image: assets/splash/corkey_splash.png 
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/corkey_icon.png"
+  image_path: "assets/icon/corkey_icon_transparency.png"
+  remove_alpha_ios: true
 
   adaptive_icon_background: "#EDE6DC"
   adaptive_icon_foreground: "assets/icon/corkey_icon_transparency.png"
