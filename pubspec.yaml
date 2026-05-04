@@ -82,7 +82,7 @@ flutter_native_splash:
 
   android_12:
     color: "#EDE6DC"
-    image: assets/splash/corkey_splash.png 
+    image: assets/icon/corkey_icon_transparency.png
 
 flutter_launcher_icons:
   android: true
