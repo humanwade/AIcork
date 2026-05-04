@@ -49,8 +49,10 @@ dependencies:
   # Typography
   google_fonts: ^6.2.1
 
-  # Camera & gallery
-  image_picker: ^1.0.7
+  # Camera & gallery (direct dep for Android Photo Picker flag; keep aligned with image_picker)
+  image_picker: ^1.1.2
+  image_picker_android: ^0.8.13
+  image_picker_platform_interface: ^2.10.0
 
   # Local persistence
   shared_preferences: ^2.2.3
